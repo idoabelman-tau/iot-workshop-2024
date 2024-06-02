@@ -5,12 +5,11 @@ export default function App() {
   const [counter, setCounter] = useState(0);
 
   const increaseCounter = () => {
-    fetch("http://localhost:7071/api/DecreaseCounter", {
+    fetch("http://localhost:7071/api/IncreaseCounter", {
       method: 'GET',
     }).then((response) => {
-      console.log(response);
+      return response.text();
     }).then((text) => {
-      console.log(text);
       setCounter(parseInt(text));
     }).catch(
       (error) => { console.error(error); }
@@ -18,7 +17,15 @@ export default function App() {
   };
 
   const decreaseCounter = () => {
-    setCounter(counter - 1);
+    fetch("http://localhost:7071/api/DecreaseCounter", {
+      method: 'GET',
+    }).then((response) => {
+      return response.text();
+    }).then((text) => {
+      setCounter(parseInt(text));
+    }).catch(
+      (error) => { console.error(error); }
+    );
   };
 
   return (
