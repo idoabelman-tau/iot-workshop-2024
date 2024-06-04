@@ -1,7 +1,7 @@
 # Objective:
 Create a simple counter app. Follow these steps:
 
-![Output sample](./assets/demo.mp4)
+![Output sample](https://github.com/moabarar/iot-workshop-2024/raw/main/assets/demo.mp4)
 
 1. Create a new React Native App.
 2. Copy and paste the source code in the frontend directory (this repo). Make sure you are able to run-it and it functions well. 
