@@ -10,7 +10,7 @@ function MapView() {
   const [error, setError] = useState(null);
 
 
-  useEffect(() => {
+  /*useEffect(() => {
     axios.get('https://gettasks.azurewebsites.net/api/gettasks')
       .then(response => {
         setMapData([response.data]);
@@ -26,7 +26,7 @@ function MapView() {
         <Text>Error: {error}</Text>
       </View>
     );
-  }
+  }*/
 
   const generateHTML = (data) => {
     return `
@@ -83,7 +83,26 @@ function MapView() {
           })();
 
           function submitTasks() {
-            alert(coordinatesToSubmit);
+            submission_array = coordinatesToSubmit.map(
+              (coords) => { return {company_id: "1",
+                            user_id: "1",
+                            courier_id:"1",
+                            delivery_address: "POINT (" + coords[0] + " " + coords[1] + ")",
+                            delivery_time: "10/8/2024",
+                            status:"pending"} }
+            );
+            fetch ("https://gettasks.azurewebsites.net/api/commitTask?", {
+              method: "POST",
+              body: JSON.stringify(submission_array)
+            }).then((response)=>{
+              if (response.status == 200) {
+                alert("tasks submitted");
+                coordinatesToSubmit.length = 0;
+              }
+              else {
+                alert("error submitting tasks");
+              }
+            });
           }
         </script>
 
