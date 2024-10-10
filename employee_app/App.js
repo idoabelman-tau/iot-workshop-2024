@@ -1,13 +1,17 @@
-import React, { useEffect, useState } from 'react';
-import { View, Text, Button, TextInput, StyleSheet } from 'react-native';
+import React, { useEffect, useState, useRef } from 'react';
+import { View, Text, Button, TextInput, StyleSheet, Platform } from 'react-native';
 import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { WebView } from 'react-native-webview';
 import axios from 'axios';
+import * as Location from 'expo-location';
+
+const LOCATION_TASK_NAME = "background-location-task";
 
 function MapView() {
   const [mapData, setMapData] = useState([]);
   const [error, setError] = useState(null);
+  const webref = useRef(null);
 
 
   useEffect(() => {
@@ -38,6 +42,37 @@ function MapView() {
     );
   }
 
+  const onLoadHandler = ({ nativeEvent }) => {
+    if (!nativeEvent.url.startsWith("http")) {
+      (async () => {
+        let { status } = await Location.requestForegroundPermissionsAsync();
+        if (status !== 'granted') {
+          setErrorMsg('Permission to access location was denied');
+          return;
+        }
+
+        Location.watchPositionAsync(
+          {
+            enableHighAccuracy: true,
+            distanceInterval: 1,
+            timeInterval: 10000
+          },
+          newLocation => {
+            //alert("position watch triggered");
+            if (webref != null) {
+              //alert("injecting js");
+              webref.current.injectJavaScript("updateCourierPosition(" + 
+                newLocation.coords.longitude + "," +
+                newLocation.coords.latitude + ");");
+            }
+          },
+          error => console.log(error)
+        )
+        
+      })();
+    }
+  };
+
   const generateHTML = (data) => {
     return `
       <!DOCTYPE html>
@@ -57,12 +92,17 @@ function MapView() {
         <script>
           const pointsSource = new atlas.source.DataSource();
           const pathsSource = new atlas.source.DataSource();
+          const courierSource = new atlas.source.DataSource();
           const coordinates = [];
+          var courierPosition;
+          var map;
+          var courierPoint;
+          var mapLoaded = false;
 
           console.log('Map script loading...');
           (function() {
             try {
-              let map = new atlas.Map('map', {
+              map = new atlas.Map('map', {
                 center: [35, 32],
                 zoom: 7,
                 view: 'Auto',
@@ -78,6 +118,7 @@ function MapView() {
                 console.log('Map is ready.');
                 map.sources.add(pointsSource);
                 map.sources.add(pathsSource);
+                map.sources.add(courierSource);
 
                 ${data.map(point => `
                   point = new atlas.data.Feature(
@@ -96,17 +137,21 @@ function MapView() {
                   }),
                   "labels"
                 );
-
+          
                 map.layers.add(new atlas.layer.SymbolLayer(pointsSource));
+                map.layers.add(new atlas.layer.SymbolLayer(courierSource, null, {
+                  iconOptions: {
+                    image: "pin-round-red"
+                  }
+                }));
+
                 console.log('Data source and layers added.');
+                mapLoaded = true;
+                if (courierPosition) {
+                  updateCourierMapPoint();
+                }
               });
 
-              map.events.add('click', function(e){
-                const point = new atlas.Shape(new atlas.data.Point());
-                point.setCoordinates(e.position);
-                pointsSource.add(point);
-                coordinates.push(e.position);
-              });
             } catch (error) {
               console.error('Error initializing map:', error);
             }
@@ -118,10 +163,11 @@ function MapView() {
             url += "&computeBestOrder=true";
             url += "&query=";
 
+            url += courierPosition[1] + "," + courierPosition[0] + ":";
             for (const point of coordinates) {
               url += point[1] + "," + point[0] + ":";
             }
-            url = url.slice(0,-1); // remove last :
+            url += courierPosition[1] + "," + courierPosition[0];
             url += "&subscription-key=5ySo1oALGOO4dggn1dVgANogVlQgfmYxAKOdNxSvlGngnZgEFHwgJQQJ99AGAC5RqLJPSPD9AAAgAZMPIZmH";
 
             // Process request
@@ -148,19 +194,46 @@ function MapView() {
               pathsSource.add(new atlas.data.Feature(new atlas.data.LineString(routeCoordinates)));
             });
           }
+
+          function updateCourierPosition(longitude, latitude) {
+            courierPosition = [longitude, latitude];
+            if (mapLoaded) {
+              updateCourierMapPoint();
+            }
+          }
+
+          function updateCourierMapPoint() {
+            if (!courierPoint) {
+              courierPoint = new atlas.Shape(new atlas.data.Feature(new atlas.data.Point(courierPosition)));
+              courierSource.add(courierPoint);
+            }
+            else {
+              courierPoint.setCoordinates(courierPosition);
+            }
+
+            //alert("map: " + map);
+            map.setCamera({
+                center: courierPosition,
+                zoom: 15
+            });
+          }
         </script>
 
         <Button onclick="calcRoute()">Show best route</Button>
       </body>
       </html>
-    `;
-  };
+    `};
 
   return (
     <View style={styles.container}>
       <WebView 
+        ref={webref}
         originWhitelist={['*']} 
-        source={{ html: generateHTML(mapData) }}  
+        source={{ html: generateHTML(mapData) }}
+        onMessage={(event) => {
+          console.log(event.nativeEvent.data);
+        }}
+        onLoad={onLoadHandler}  
       />
     </View>
   );
@@ -192,7 +265,6 @@ const MainScreen = ({navigation, route}) => {
 const Stack = createNativeStackNavigator();
 
 function App() {
-
   return (
     <NavigationContainer>
       <Stack.Navigator>
@@ -210,6 +282,48 @@ function App() {
     </NavigationContainer>
   );
 }
+
+// function App() {
+//   const [location, setLocation] = useState(null);
+//   const [errorMsg, setErrorMsg] = useState(null);
+
+//   useEffect(() => {
+//     (async () => {
+      
+//       let { status } = await Location.requestForegroundPermissionsAsync();
+//       if (status !== 'granted') {
+//         setErrorMsg('Permission to access location was denied');
+//         return;
+//       }
+
+//       Location.watchPositionAsync(
+//         {
+//           enableHighAccuracy: true,
+//           distanceInterval: 1,
+//           timeInterval: 10000
+//         },
+//         newLocation => {
+//           setLocation(newLocation);
+//         },
+//         error => console.log(error)
+//       )
+      
+//     })();
+//   }, []);
+
+//   let text = 'Waiting..';
+//   if (errorMsg) {
+//     text = errorMsg;
+//   } else if (location) {
+//     text = JSON.stringify(location);
+//   }
+
+//   return (
+//     <View style={styles.container}>
+//       <Text style={styles.paragraph}>{text}</Text>
+//     </View>
+//   );
+// }
 
 const styles = StyleSheet.create({
   container: {
