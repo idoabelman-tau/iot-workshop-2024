@@ -1,7 +1,7 @@
 {
   "expo": {
-    "name": "management-app",
-    "slug": "management-app",
+    "name": "employee-app",
+    "slug": "employee-app",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
