@@ -283,48 +283,6 @@ function App() {
   );
 }
 
-// function App() {
-//   const [location, setLocation] = useState(null);
-//   const [errorMsg, setErrorMsg] = useState(null);
-
-//   useEffect(() => {
-//     (async () => {
-      
-//       let { status } = await Location.requestForegroundPermissionsAsync();
-//       if (status !== 'granted') {
-//         setErrorMsg('Permission to access location was denied');
-//         return;
-//       }
-
-//       Location.watchPositionAsync(
-//         {
-//           enableHighAccuracy: true,
-//           distanceInterval: 1,
-//           timeInterval: 10000
-//         },
-//         newLocation => {
-//           setLocation(newLocation);
-//         },
-//         error => console.log(error)
-//       )
-      
-//     })();
-//   }, []);
-
-//   let text = 'Waiting..';
-//   if (errorMsg) {
-//     text = errorMsg;
-//   } else if (location) {
-//     text = JSON.stringify(location);
-//   }
-
-//   return (
-//     <View style={styles.container}>
-//       <Text style={styles.paragraph}>{text}</Text>
-//     </View>
-//   );
-// }
-
 const styles = StyleSheet.create({
   container: {
     flex: 1,
