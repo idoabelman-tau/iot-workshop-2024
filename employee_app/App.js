@@ -1,10 +1,27 @@
 import React, { useEffect, useState, useRef } from 'react';
-import { View, Text, Button, TextInput, StyleSheet, Platform } from 'react-native';
+import { View, Text, Button, TextInput, StyleSheet, Platform, ScrollView } from 'react-native';
 import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { WebView } from 'react-native-webview';
 import axios from 'axios';
 import * as Location from 'expo-location';
+import { initializeApp } from '@firebase/app';
+import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, onAuthStateChanged, signOut } from '@firebase/auth';
+import { Alert } from 'react-native';
+
+//xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+const firebaseConfig = {
+  apiKey: "AIzaSyAzGObnU2oZtfeQH1a6gDMY-qXHr5uyr8c",
+  authDomain: "employee-b8752.firebaseapp.com",
+  projectId: "employee-b8752",
+  storageBucket: "employee-b8752.appspot.com",
+  messagingSenderId: "1003476723838",
+  appId: "1:1003476723838:web:5dcc7c9b9c494a5dec502f",
+  measurementId: "G-LE276GS5NZ"
+};
+
+const app = initializeApp(firebaseConfig);
+//xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
 
 const LOCATION_TASK_NAME = "background-location-task";
 
@@ -239,6 +256,7 @@ function MapView() {
   );
 }
 
+/*
 const LoginScreen = ({navigation}) => {
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
@@ -255,6 +273,7 @@ const LoginScreen = ({navigation}) => {
     </View>
   );
 };
+*/
 
 const MainScreen = ({navigation, route}) => {
   return (
@@ -264,20 +283,135 @@ const MainScreen = ({navigation, route}) => {
 
 const Stack = createNativeStackNavigator();
 
+//xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+const AuthScreen = ({ email, setEmail, password, setPassword, isLogin, setIsLogin, handleAuthentication }) => {
+  return (
+    <View style={styles2.authContainer}>
+       <Text style={styles2.title}>{isLogin ? 'Sign In' : 'Sign Up'}</Text>
+
+       <TextInput
+        style={styles2.input}
+        value={email}
+        onChangeText={setEmail}
+        placeholder="Email"
+        autoCapitalize="none"
+      />
+      <TextInput
+        style={styles2.input}
+        value={password}
+        onChangeText={setPassword}
+        placeholder="Password"
+        secureTextEntry
+      />
+      <View style={styles2.buttonContainer}>
+        <Button title={isLogin ? 'Sign In' : 'Sign Up'} onPress={handleAuthentication} color="#3498db" />
+      </View>
+
+      <View style={styles2.bottomContainer}>
+        <Text style={styles2.toggleText} onPress={() => setIsLogin(!isLogin)}>
+          {isLogin ? 'Need an account? Sign Up' : 'Already have an account? Sign In'}
+        </Text>
+      </View>
+    </View>
+  );
+}
+
+
+const AuthenticatedScreen = ({ user, handleAuthentication, navigation }) => {
+  return (
+    <View style={styles2.authContainer}>
+      <Text style={styles2.title}>Welcome</Text>
+      <Text style={styles2.emailText}>{user.email}</Text>
+      <Button title="Go to Map" onPress={() => navigation.navigate('Main')} />
+      <Button title="Logout" onPress={handleAuthentication} color="#e74c3c" />
+    </View>
+  );
+};
+
+//xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+
 function App() {
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [user, setUser] = useState(null); // Track user authentication state
+  const [isLogin, setIsLogin] = useState(true);
+
+  const auth = getAuth(app);
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, (user) => {
+      setUser(user);
+    });
+
+    return () => unsubscribe();
+  }, [auth]);
+
+  
+  const handleAuthentication = async () => {
+    try {
+      // Attempt to sign in or sign up
+      if (user) {
+        // If user is already authenticated, log out
+        console.log('User logged out successfully!');
+        await signOut(auth);
+      } else {
+        // Sign in or sign up
+        if (isLogin) {
+          // Sign in
+          await signInWithEmailAndPassword(auth, email, password);
+          console.log('User signed in successfully!');
+        } else {
+          // Sign up
+          await createUserWithEmailAndPassword(auth, email, password);
+          console.log('User created successfully!');
+        }
+      }
+    } catch (error) {
+      // Log the error for debugging
+      console.error('Authentication error:', error.message);
+      
+      // Handle specific authentication error for invalid credentials
+      if (error.code === 'auth/invalid-credential') {
+        Alert.alert('Error', 'The user or password is not valid. Please try again.');
+      }
+      // Optional: Handle any other errors if needed
+      else {
+        Alert.alert('Error', 'An error occurred. Please try again.');
+      }
+    }
+  };
+
   return (
     <NavigationContainer>
       <Stack.Navigator>
-        <Stack.Screen
-          name="Login"
-          component={LoginScreen}
-          options={{title: 'Login'}}
-        />
-        <Stack.Screen
-          name="Main"
-          component={MainScreen}
-          options={({ route }) => ({ title: "Welcome " + route.params.name })}
-        />
+        {user ? (
+          // If user is authenticated, navigate to AuthenticatedScreen
+          <Stack.Screen name="Authenticated">
+            {(props) => (
+              <AuthenticatedScreen
+                {...props}
+                user={user}
+                handleAuthentication={handleAuthentication}
+              />
+            )}
+          </Stack.Screen>
+        ) : (
+          // If user is not authenticated, navigate to AuthScreen
+          <Stack.Screen name="Auth">
+            {(props) => (
+              <AuthScreen
+                {...props}
+                email={email}
+                setEmail={setEmail}
+                password={password}
+                setPassword={setPassword}
+                isLogin={isLogin}
+                setIsLogin={setIsLogin}
+                handleAuthentication={handleAuthentication}
+              />
+            )}
+          </Stack.Screen>
+        )}
+        <Stack.Screen name="Main" component={MainScreen} />
       </Stack.Navigator>
     </NavigationContainer>
   );
@@ -286,6 +420,52 @@ function App() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+  },
+});
+
+const styles2 = StyleSheet.create({
+  container: {
+    flexGrow: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 16,
+    backgroundColor: '#f0f0f0',
+  },
+  authContainer: {
+    width: '80%',
+    maxWidth: 400,
+    backgroundColor: '#fff',
+    padding: 16,
+    borderRadius: 8,
+    elevation: 3,
+  },
+  title: {
+    fontSize: 24,
+    marginBottom: 16,
+    textAlign: 'center',
+  },
+  input: {
+    height: 40,
+    borderColor: '#ddd',
+    borderWidth: 1,
+    marginBottom: 16,
+    padding: 8,
+    borderRadius: 4,
+  },
+  buttonContainer: {
+    marginBottom: 16,
+  },
+  toggleText: {
+    color: '#3498db',
+    textAlign: 'center',
+  },
+  bottomContainer: {
+    marginTop: 20,
+  },
+  emailText: {
+    fontSize: 18,
+    textAlign: 'center',
+    marginBottom: 20,
   },
 });
 
