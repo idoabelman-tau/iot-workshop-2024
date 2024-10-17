@@ -80,7 +80,8 @@ function MapView() {
           const pointsSource = new atlas.source.DataSource();
           var map;
           var geocodeServiceUrlTemplate = 'https://{azMapsDomain}/search/address/json?typeahead=true&api-version=1.0&query={query}&language=he-IL&lon={lon}&lat={lat}&countrySet=IL&view=Auto';
-          marker_clicked = false;
+          var marker_clicked = false;
+          var selected_marker = null;
 
           function startAutocomplete() {
             //Create a jQuery autocomplete UI widget.
@@ -103,7 +104,7 @@ function MapView() {
                     pointsSource.add(
                       new atlas.data.Feature(
                         new atlas.data.Point([ui.item.position.lon, ui.item.position.lat]),
-                        {marked: 0, submitted: 0}
+                        {selected: 0, submitted: 0}
                       )
                     );
 
@@ -153,7 +154,7 @@ function MapView() {
                 ${data.map(point => `
                   point = new atlas.data.Feature(
                     new atlas.data.Point([${point[0]}, ${point[1]}]),
-                    {marked: 0, submitted: 1}
+                    {selected: 0, submitted: 1}
                   );
                   pointsSource.add(point);
                 `).join('')}
@@ -163,12 +164,14 @@ function MapView() {
                   iconOptions: {
                     image: [
                       "case",
-                        ["==", ["get", "marked"], 1],
+                        ["==", ["get", "selected"], 1], // red for the selected marker
                           "marker-red",
-                        ["==", ["get", "submitted"], 1],
+                        ["==", ["get", "submitted"], 1], // dark blue for submitted (i.e. in the database)
                           "marker-darkblue",
+                        ["has", "phone_number"], // yellow for unsubmitted with an updated phone number (to be submitted)
+                          "marker-yellow",
 
-                        "marker-blue",
+                        "marker-blue", // blue default
                     ]
                   }
                 });
@@ -179,9 +182,7 @@ function MapView() {
                 map.events.add('click', pointsLayer, function(e) {
                   if (e.shapes && e.shapes.length > 0) { // if we clicked on a marker
                     marker = e.shapes[0];
-                    props = marker.getProperties();
-                    props.marked = 1 - props.marked; // toggle 1 to 0 and vice versa
-                    marker.setProperties(props);
+                    setSelected(marker);
                     e.preventDefault();
                     marker_clicked = true;
                   }
@@ -195,8 +196,10 @@ function MapView() {
                   }
                   const point = new atlas.data.Point(e.position);
                   const feature = new atlas.data.Feature(point, 
-                        {marked: 0, submitted: 0});
-                  pointsSource.add(feature);
+                        {selected: 0, submitted: 0});
+                  const shape = new atlas.Shape(feature); 
+                  pointsSource.add(shape);
+                  setSelected(shape);
                 });
 
                 startAutocomplete();
@@ -206,9 +209,31 @@ function MapView() {
             }
           }
 
+          function setSelected(marker) {
+            props = marker.getProperties();
+            if (props.selected == 0) { // select the current marker instead of the previous one
+              if (selected_marker != null) {
+                selected_props = selected_marker.getProperties();
+                selected_props.selected = 0;
+                selected_marker.setProperties(selected_props);
+              }
+
+              props.selected = 1;
+              marker.setProperties(props);
+              selected_marker = marker;
+              if (props.phone_number) {
+                $("#phone_number").val(props.phone_number);
+              }
+              else {
+                $("#phone_number").val("");
+              }
+            }
+          }
+
           function submitTasks() {
+            // submit points that have the phone number set and weren't already submitted
             pointsToSubmit = pointsSource.shapes.filter(
-              (marker) => { return marker.getProperties().marked == 1 && 
+              (marker) => { return "phone_number" in marker.getProperties() && 
                                   marker.getProperties().submitted == 0 }
             )
 
@@ -218,6 +243,7 @@ function MapView() {
                             courier_id:"1",
                             delivery_address: "POINT (" + marker.getCoordinates()[0] + " " + marker.getCoordinates()[1] + ")",
                             delivery_time: "10/8/2024",
+                            phone_number: marker.phone_number,
                             status:"pending"} }
             );
 
@@ -240,6 +266,12 @@ function MapView() {
               }
             });
           }
+
+          function updatePhone() {
+            props = selected_marker.getProperties();
+            props.phone_number = $("#phone_number").val();
+            selected_marker.setProperties(props);
+          }
         </script>
 
         <style>
@@ -255,7 +287,14 @@ function MapView() {
 
         <div id="map" style="position:relative;width:100%;min-width:290px;height:500px;"></div>
 
-        <Button onclick="submitTasks()">Submit tasks</Button>
+        <div class="ui-widget">
+            <label for="phone_number">Client phone number: </label>
+            <input id="phone_number">
+            <Button onclick="updatePhone()">Update</Button>
+        </div>
+        <div class="ui-widget">
+          <Button onclick="submitTasks()">Submit tasks</Button>
+        </div>
       </body>
       </html>
     `;
@@ -281,25 +320,6 @@ const employees = [{
   id: 2,
   name: "Man"
 }];
-
-/*
-const LoginScreen = ({navigation}) => {
-  const [username, setUsername] = useState("");
-  const [password, setPassword] = useState("");
-  return (
-    <View>
-      <TextInput placeholder="username" onChangeText={(username) => setUsername(username)}/>
-      <TextInput placeholder="password" onChangeText={(password) => setPassword(password)}/>
-      <Button
-        title="Login"
-        onPress={() =>
-          navigation.navigate('Main', {name: username})
-        }
-      />
-    </View>
-  );
-};
-*/
 
 const MainScreen = ({navigation, route}) => {
   const employeeButtons = employees.map((employee) =>
