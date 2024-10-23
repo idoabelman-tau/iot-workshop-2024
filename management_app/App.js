@@ -1,12 +1,14 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, Button, TextInput, StyleSheet, Dimensions } from 'react-native';
+import { View, Text, Button, TextInput, StyleSheet, Dimensions, Alert, TouchableOpacity, Pressable } from 'react-native';
 import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { WebView } from 'react-native-webview';
 import axios from 'axios';
 import { initializeApp } from '@firebase/app';
 import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, onAuthStateChanged, signOut } from '@firebase/auth';
-import { Alert } from 'react-native';
+import { useNavigation } from '@react-navigation/native';
+import { useIsFocused } from '@react-navigation/native';
+
 
 //xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
 const firebaseConfig = {
@@ -20,17 +22,18 @@ const firebaseConfig = {
 };
 
 const app = initializeApp(firebaseConfig);
+const auth = getAuth(app);
 //xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
 
-function MapView() {
+function MapView( { employee_id, company_id } ) {
   const [mapData, setMapData] = useState([]);
   const [error, setError] = useState(null);
 
   useEffect(() => {
     axios.post('https://gettasks.azurewebsites.net/api/getTasks?', [
         {
-          "company_id" : 1,
-          "courier_id" : 1
+          "company_id" : company_id,
+          "courier_id" : employee_id
         }
       ])
       .then(response => {
@@ -44,7 +47,7 @@ function MapView() {
         setError(error.message);
         console.error(error);
       });
-  }, []);
+  }, [ employee_id, company_id ]);
   if (error) {
     console.log('error')
     return (
@@ -311,44 +314,152 @@ function MapView() {
 }
 
 const employees = [{
-  id: 0,
-  name: "Guy"
+  employee_id: 1,
+  company_id: 1,
+  name: "guy",
+  user_id: "rRWUKie3aWXNvUlvDSthhs7kGio1"
 }, {
-  id: 1,
-  name: "Buddy"
+  employee_id: 2,
+  company_id: 1,
+  name: "buddy",
+  user_id: "mw1sQmRWJUaqn0YlPSrgqDT0Jh63"
 }, {
-  id: 2,
-  name: "Man"
+  employee_id: 3,
+  company_id: 1,
+  name: "man",
+  user_id: "NNoxdcAlYhcy7trB4PxhcVzF9wH2"
+}, {
+  employee_id: 4,
+  company_id: 2,
+  name: "adam",
+  user_id: "McmAIYF4yQbsAVNAkT3LDuGel1z1"
+}, {
+  employee_id: 5,
+  company_id: 2,
+  name: "jack",
+  user_id: "n81jOz8eFsRqxFSLyTlBK5shCFO2"
+}, {
+  employee_id: 6,
+  company_id: 3,
+  name: "noor",
+  user_id: "6TjZVM9gZZTfJJu3tgy1BfmLP3V2"
 }];
 
-const MainScreen = ({navigation, route}) => {
-  const employeeButtons = employees.map((employee) =>
-    <Button
-      title = {employee.name}
-      key = {employee.id}
-      onPress={() =>
-        navigation.navigate('Employee', {id: employee.id})
-      }
-    />
-  );
+const admins = [{
+  admin_id: 7,
+  company_id: 1,
+  name: "Admin1",
+  user_id: "V6lMmiF6zdRpz9U5aFzd1Pr2xE93"
+}, {
+  admin_id: 8,
+  company_id: 2,
+  name: "Admin2",
+  user_id: "DZ4Q4BVZw2esryz9ejHdPpsLfTE3"
+}, {
+  admin_id: 9,
+  company_id: 3,
+  name: "Admin3",
+  user_id: "VAikv8G3zWW694SOym2fLzkQa523"
+}];
+
+
+//-----------------------------------------------------------------------------------------------------------------------------------------------------------------------
+const AddEmployeeScreen = ({ navigation, route }) => {
+  const [newEmployeeName, setNewEmployeeName] = useState('');
+  const loggedInAdminId = route.params.loggedInAdminId;
+
+  // Find the admin to get their company_id
+  const admin = admins.find(admin => admin.user_id === loggedInAdminId);
+  const companyId = admin ? admin.company_id : null;
+
+  const addEmployee = async () => {
+    if (!newEmployeeName || !companyId) {
+      Alert.alert("Please enter a name for the employee.");
+      return;
+    }
+  
+    try {
+      // Create new user
+      const userCredential = await createUserWithEmailAndPassword(auth, newEmployeeName + "@gmail.com", "1234567890");
+      const userId = userCredential.user.uid;
+  
+      // Create the new employee object
+      const newEmployee = {
+        employee_id: employees.length + 1, // Generate a new employee ID
+        company_id: companyId,
+        name: newEmployeeName,
+        user_id: userId
+      };
+  
+      // Update local employees list here (need to replace to upadte in azure database)
+  
+      Alert.alert("Employee added successfully!");
+      navigation.goBack(); // Navigate back to the MainScreen
+    } catch (error) {
+      Alert.alert("Error adding employee: " + error.message);
+    }
+  };
+
   return (
-    <View>
-      <Text>Choose employee:</Text>
-      <View>
-        {employeeButtons}
+    <View style={styles3.container}>
+      <Text style={styles3.headerText}>Add New Employee</Text>
+      <TextInput
+        style={styles3.input}
+        placeholder="Employee Name"
+        value={newEmployeeName}
+        onChangeText={setNewEmployeeName}
+      />
+      <Button title="Add Employee" onPress={addEmployee} />
+    </View>
+  );
+};
+//-----------------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+
+const MainScreen = ({ route }) => {
+  const navigation = useNavigation();
+  const loggedInAdminId = route.params.loggedInAdminId;
+
+  return (
+    <View style={styles4.container}>
+      <Text style={styles4.chooseEmployeeText}>Choose employee:</Text>
+
+      {/* Employee Buttons */}
+      <View style={styles4.employeeButtonsContainer}>
+        {employees
+          .filter(employee => employee.company_id === (admins.find(admin => admin.user_id === loggedInAdminId)?.company_id))
+          .map(employee => (
+            <Button
+              title={employee.name}
+              key={employee.employee_id}
+              onPress={() =>
+                navigation.navigate('Employee', { employee_id: employee.employee_id, company_id: employee.company_id })
+              }
+              color={styles4.button.color} // Use the color from styles
+              style={styles4.button}
+              titleStyle={{ fontSize: 18 }} // Adjust the font size here
+            />
+          ))}
       </View>
+
+      {/* Add Employee Button at the bottom */}
+      <Button 
+        title="Add Employee" 
+        onPress={() => navigation.navigate('AddEmployee', { loggedInAdminId })} 
+        color={styles4.addButton.color} // Use the color from styles
+        style={styles4.addButton} 
+      />
     </View>
   );
 };
 
+
 const EmployeeScreen = ({navigation, route}) => {
+  const { employee_id, company_id } = route.params;
   return (
-    <MapView/>
+    <MapView employee_id={employee_id}  company_id={company_id} />
   );
 };
-
-const Stack = createNativeStackNavigator();
-
 
 //xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
 const AuthScreen = ({ email, setEmail, password, setPassword, isLogin, setIsLogin, handleAuthentication }) => {
@@ -385,11 +496,29 @@ const AuthScreen = ({ email, setEmail, password, setPassword, isLogin, setIsLogi
 
 
 const AuthenticatedScreen = ({ user, handleAuthentication, navigation }) => {
+
+    // Find the admin using the user.uid from Firebase
+  const admin = admins.find(e => e.user_id === user.uid);
+
+  // Log information when an admin is found
+  if (admin) {
+    console.log(`User Logged In: Name: ${admin.name}, Admin ID: ${admin.admin_id}, User ID: ${user.uid}, Company ID: ${admin.company_id}`);
+  }
+  if (!admin) {
+    return (
+      <View style={styles1.authContainer}>
+        <Text style={styles1.title}>Admin not found</Text>
+        <Text style={styles1.smallText}>If you are an employee, please login using the employee app.</Text>
+        {/* Add a button to log out and try logging in again */}
+        <Button title="Try Again" onPress={handleAuthentication} color="#e74c3c" />
+      </View>
+    );
+  }
   return (
-    <View style={styles2.authContainer}>
-      <Text style={styles2.title}>Welcome</Text>
-      <Text style={styles2.emailText}>{user.email}</Text>
-      <Button title="Employee list" onPress={() => navigation.navigate('Main')} />
+    <View style={styles1.authContainer}>
+      <Text style={styles1.title}>Welcome</Text>
+      <Text style={styles1.emailText}>{user.email}</Text>
+      <Button title="Employee list" onPress={() => navigation.navigate('Main', { loggedInAdminId: admin.user_id })} />
       <Button title="Logout" onPress={handleAuthentication} color="#e74c3c" />
     </View>
   );
@@ -397,13 +526,15 @@ const AuthenticatedScreen = ({ user, handleAuthentication, navigation }) => {
 
 //xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
 
+const Stack = createNativeStackNavigator();
+
 function App() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [user, setUser] = useState(null); // Track user authentication state
   const [isLogin, setIsLogin] = useState(true);
 
-  const auth = getAuth(app);
+  //const auth = getAuth(app);
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (user) => {
       setUser(user);
@@ -424,12 +555,16 @@ function App() {
         // Sign in or sign up
         if (isLogin) {
           // Sign in
-          await signInWithEmailAndPassword(auth, email, password);
+          const userCredential = await signInWithEmailAndPassword(auth, email, password);
+          const signedInUser = userCredential.user;  // Get the user object
           console.log('User signed in successfully!');
+          console.log('User.uid:', signedInUser.uid); // Log the UID
         } else {
           // Sign up
-          await createUserWithEmailAndPassword(auth, email, password);
+          const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+          const createdUser = userCredential.user; // Get the user object
           console.log('User created successfully!');
+          console.log('User.uid:', createdUser.uid); // Log the UID
         }
       }
     } catch (error) {
@@ -445,6 +580,8 @@ function App() {
         Alert.alert('Error', 'No user found with this email.');
       } else if (error.code === 'auth/invalid-credential') {
         Alert.alert('Error', 'The user or password is not valid. Please try again.');
+      } else if (error.code === 'auth/email-already-in-use') {
+        Alert.alert('Error', 'This email is already in use. Please try logging in instead.');
       } else {
         // General error handling
         Alert.alert('Error', 'An error occurred. Please try again.');
@@ -488,10 +625,13 @@ function App() {
           component={MainScreen}
           options={({ route }) => ({ title: "Employee list"})}
         />
+
+        <Stack.Screen name="AddEmployee" component={AddEmployeeScreen} />
+
         <Stack.Screen
           name="Employee"
           component={EmployeeScreen}
-          options={({ route }) => ({ title: "Employee " + employees[route.params.id].name })}
+          options={({ route }) => ({ title: "Employee " })}
         />
       </Stack.Navigator>
     </NavigationContainer>
@@ -505,49 +645,123 @@ const styles = StyleSheet.create({
   },
 });
 
-const styles2 = StyleSheet.create({
-  container: {
-    flexGrow: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 16,
-    backgroundColor: '#f0f0f0',
-  },
+
+const styles1 = StyleSheet.create({
   authContainer: {
-    width: '80%',
-    maxWidth: 400,
-    backgroundColor: '#fff',
-    padding: 16,
-    borderRadius: 8,
-    elevation: 3,
+    flex: 1,
+    justifyContent: 'flex-start', // Align items to the start (top)
+    alignItems: 'center', // Center horizontally
+    padding: 20, //  add some padding
+    paddingTop: 180, // Adjust padding to move content higher
+    backgroundColor: '#f5f5f5', // set a background color
   },
   title: {
     fontSize: 24,
-    marginBottom: 16,
-    textAlign: 'center',
+    fontWeight: 'bold',
+    marginBottom: 20, // Space below title
+  },
+  smallText: {
+    fontSize: 16,
+    marginBottom: 20, // Space below small text
+    textAlign: 'center', // Center text
+  },
+  emailText: {
+    fontSize: 18,
+    marginBottom: 20, // Space below email text
+  },
+});
+
+
+const styles2 = StyleSheet.create({
+  authContainer: {
+    flex: 1,
+    justifyContent: 'flex-start', // Centers vertically
+    alignItems: 'center',     // Centers horizontally
+    padding: 20,
+    paddingTop: 180, // Adjust padding to move content higher
+    backgroundColor: '#f5f5f5',
+  },
+  title: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    marginBottom: 20,
+    color: '#333',
   },
   input: {
-    height: 40,
-    borderColor: '#ddd',
+    width: '80%',             // Set the input width to 80% of the container
+    padding: 15,
+    marginVertical: 10,
     borderWidth: 1,
-    marginBottom: 16,
-    padding: 8,
-    borderRadius: 4,
+    borderColor: '#ccc',
+    borderRadius: 8,
+    backgroundColor: '#fff',
   },
   buttonContainer: {
-    marginBottom: 16,
-  },
-  toggleText: {
-    color: '#3498db',
-    textAlign: 'center',
+    width: '80%',             // Set the button container width to 80%
+    marginVertical: 10,
   },
   bottomContainer: {
     marginTop: 20,
   },
-  emailText: {
-    fontSize: 18,
-    textAlign: 'center',
+  toggleText: {
+    color: '#3498db',
+    textDecorationLine: 'underline',
+  },
+});
+
+const styles3 = StyleSheet.create({
+  container: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center', // Center the content horizontally
+    padding: 20,
+  },
+  headerText: {
+    fontSize: 24,
+    marginBottom: 20, // Space between header and input
+  },
+  input: {
+    height: 40,
+    borderColor: 'gray',
+    borderWidth: 1,
+    width: '80%', // Make the input take up 80% of the width
+    marginBottom: 20, // Space between input and button
+    paddingHorizontal: 10,
+  },
+});
+
+
+const styles4 = StyleSheet.create({
+  container: {
+    flex: 1,
+    padding: 20,
+    justifyContent: 'space-between', // This keeps the Add Employee button at the bottom
+  },
+  chooseEmployeeText: {
+    fontSize: 24,
+    fontWeight: 'bold',
     marginBottom: 20,
+  },
+  employeeButtonsContainer: {
+    flex: 1,
+    justifyContent: 'flex-start', // Align buttons at the start
+    marginTop: 10, // Adjust margin to move buttons higher
+  },
+  button: {
+    marginVertical: 10,
+    borderColor: '#3498db',
+    borderWidth: 2,
+    backgroundColor: '#d9edf7', // Light gray background
+    borderRadius: 10, // Rounded edges
+    color: '#3498db', // Button text color
+  },
+  addButton: {
+    marginTop: 10,
+    borderColor: '#e74c3c',
+    borderWidth: 2,
+    backgroundColor: '#f8d7da', // color for the add button
+    borderRadius: 10, // Rounded edges
+    color: '#007bff', // Button text color
   },
 });
 

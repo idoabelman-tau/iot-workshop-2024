@@ -11,13 +11,13 @@ import { Alert } from 'react-native';
 
 //xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
 const firebaseConfig = {
-  apiKey: "AIzaSyAzGObnU2oZtfeQH1a6gDMY-qXHr5uyr8c",
-  authDomain: "employee-b8752.firebaseapp.com",
-  projectId: "employee-b8752",
-  storageBucket: "employee-b8752.appspot.com",
-  messagingSenderId: "1003476723838",
-  appId: "1:1003476723838:web:5dcc7c9b9c494a5dec502f",
-  measurementId: "G-LE276GS5NZ"
+  apiKey: "AIzaSyAu4qWAzOtvLZ-2wrVH_6WonOJEr0UecW0",
+  authDomain: "management-994ae.firebaseapp.com",
+  projectId: "management-994ae",
+  storageBucket: "management-994ae.appspot.com",
+  messagingSenderId: "676453066536",
+  appId: "1:676453066536:web:2563425657ce7f33aa121d",
+  measurementId: "G-CE7Y0ZHDWP"
 };
 
 const app = initializeApp(firebaseConfig);
@@ -25,7 +25,7 @@ const app = initializeApp(firebaseConfig);
 
 const LOCATION_TASK_NAME = "background-location-task";
 
-function MapView() {
+function MapView( { employee_id, company_id } ) {
   const [mapData, setMapData] = useState([]);
   const [error, setError] = useState(null);
   const webref = useRef(null);
@@ -34,8 +34,8 @@ function MapView() {
   useEffect(() => {
     axios.post('https://gettasks.azurewebsites.net/api/getTasks?', [
         {
-          "company_id" : 1,
-          "courier_id" : 1
+          "company_id" : company_id,  // Adjust company_id if needed
+          "courier_id" : employee_id   // Use employee_id for fetching specific delivery points
         }
       ])
       .then(response => {
@@ -49,7 +49,7 @@ function MapView() {
         setError(error.message);
         console.error(error);
       });
-  }, []);
+  }, [ employee_id, company_id ]); // Re-run the effect when employee_id changes
   if (error) {
     console.log('error')
     return (
@@ -256,28 +256,44 @@ function MapView() {
   );
 }
 
-/*
-const LoginScreen = ({navigation}) => {
-  const [username, setUsername] = useState("");
-  const [password, setPassword] = useState("");
-  return (
-    <View>
-      <TextInput placeholder="username" onChangeText={(username) => setUsername(username)}/>
-      <TextInput placeholder="password" onChangeText={(password) => setPassword(password)}/>
-      <Button
-        title="Login"
-        onPress={() =>
-          navigation.navigate('Main', {name: username})
-        }
-      />
-    </View>
-  );
-};
-*/
+// the emails are name@gmail.com and all of the passwords are 1234567890
+const employees = [{
+  employee_id: 1,
+  company_id: 1,
+  name: "guy",
+  user_id: "rRWUKie3aWXNvUlvDSthhs7kGio1"
+}, {
+  employee_id: 2,
+  company_id: 1,
+  name: "buddy",
+  user_id: "mw1sQmRWJUaqn0YlPSrgqDT0Jh63"
+}, {
+  employee_id: 3,
+  company_id: 1,
+  name: "man",
+  user_id: "NNoxdcAlYhcy7trB4PxhcVzF9wH2"
+}, {
+  employee_id: 4,
+  company_id: 2,
+  name: "adam",
+  user_id: "McmAIYF4yQbsAVNAkT3LDuGel1z1"
+}, {
+  employee_id: 5,
+  company_id: 2,
+  name: "jack",
+  user_id: "n81jOz8eFsRqxFSLyTlBK5shCFO2"
+}, {
+  employee_id: 6,
+  company_id: 3,
+  name: "noor",
+  user_id: "6TjZVM9gZZTfJJu3tgy1BfmLP3V2"
+}];
+
 
 const MainScreen = ({navigation, route}) => {
+  const { employee_id, company_id } = route.params;
   return (
-    <MapView/>
+    <MapView employee_id={employee_id}  company_id={company_id} />
   );
 };
 
@@ -318,11 +334,31 @@ const AuthScreen = ({ email, setEmail, password, setPassword, isLogin, setIsLogi
 
 
 const AuthenticatedScreen = ({ user, handleAuthentication, navigation }) => {
+
+  // Find the employee using the user.uid from Firebase
+  const employee = employees.find(e => e.user_id === user.uid);
+
+  // Log information when an employee is found
+  if (employee) {
+    console.log(`User Logged In: Name: ${employee.name}, Employee ID: ${employee.employee_id}, User ID: ${user.uid}, Company ID: ${employee.company_id}`);
+  }
+  if (!employee) {
+    return (
+      <View style={styles1.authContainer}>
+        <Text style={styles1.title}>Employee not found</Text>
+        <Text style={styles1.smallText}>If you are an admin, please login using the manager app.</Text>
+        {/* Add a button to log out and try logging in again */}
+        <Button title="Try Again" onPress={handleAuthentication} color="#e74c3c" />
+      </View>
+    );
+  }
+
   return (
-    <View style={styles2.authContainer}>
-      <Text style={styles2.title}>Welcome</Text>
-      <Text style={styles2.emailText}>{user.email}</Text>
-      <Button title="Go to Map" onPress={() => navigation.navigate('Main')} />
+    <View style={styles1.authContainer}>
+      <Text style={styles1.title}>Welcome</Text>
+      <Text style={styles1.emailText}>{user.email}</Text>
+      {/* Pass the employee_id instead of user_id to MainScreen */}
+      <Button title="Go to Map" onPress={() => navigation.navigate('Main', { employee_id: employee.employee_id, company_id: employee.company_id })} />
       <Button title="Logout" onPress={handleAuthentication} color="#e74c3c" />
     </View>
   );
@@ -357,24 +393,35 @@ function App() {
         // Sign in or sign up
         if (isLogin) {
           // Sign in
-          await signInWithEmailAndPassword(auth, email, password);
+          const userCredential = await signInWithEmailAndPassword(auth, email, password);
+          const signedInUser = userCredential.user;  // Get the user object
           console.log('User signed in successfully!');
+          console.log('User.uid:', signedInUser.uid); // Log the UID
         } else {
           // Sign up
-          await createUserWithEmailAndPassword(auth, email, password);
+          const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+          const createdUser = userCredential.user; // Get the user object
           console.log('User created successfully!');
+          console.log('User.uid:', createdUser.uid); // Log the UID
         }
       }
     } catch (error) {
       // Log the error for debugging
       console.error('Authentication error:', error.message);
       
-      // Handle specific authentication error for invalid credentials
-      if (error.code === 'auth/invalid-credential') {
+      // Handle specific authentication errors
+      if (error.code === 'auth/invalid-email') {
+        Alert.alert('Error', 'The email address is not valid.');
+      } else if (error.code === 'auth/wrong-password') {
+        Alert.alert('Error', 'The password is incorrect.');
+      } else if (error.code === 'auth/user-not-found') {
+        Alert.alert('Error', 'No user found with this email.');
+      } else if (error.code === 'auth/invalid-credential') {
         Alert.alert('Error', 'The user or password is not valid. Please try again.');
-      }
-      // Optional: Handle any other errors if needed
-      else {
+      } else if (error.code === 'auth/email-already-in-use') {
+        Alert.alert('Error', 'This email is already in use. Please try logging in instead.');
+      } else {
+        // General error handling
         Alert.alert('Error', 'An error occurred. Please try again.');
       }
     }
@@ -423,49 +470,65 @@ const styles = StyleSheet.create({
   },
 });
 
-const styles2 = StyleSheet.create({
-  container: {
-    flexGrow: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 16,
-    backgroundColor: '#f0f0f0',
-  },
+const styles1 = StyleSheet.create({
   authContainer: {
-    width: '80%',
-    maxWidth: 400,
-    backgroundColor: '#fff',
-    padding: 16,
-    borderRadius: 8,
-    elevation: 3,
+    flex: 1,
+    justifyContent: 'flex-start', // Align items to the start (top)
+    alignItems: 'center', // Center horizontally
+    padding: 20, //  add some padding
+    paddingTop: 180, // Adjust padding to move content higher
+    backgroundColor: '#f5f5f5', // set a background color
   },
   title: {
     fontSize: 24,
-    marginBottom: 16,
-    textAlign: 'center',
+    fontWeight: 'bold',
+    marginBottom: 20, // Space below title
+  },
+  smallText: {
+    fontSize: 16,
+    marginBottom: 20, // Space below small text
+    textAlign: 'center', // Center text
+  },
+  emailText: {
+    fontSize: 18,
+    marginBottom: 20, // Space below email text
+  },
+});
+
+const styles2 = StyleSheet.create({
+  authContainer: {
+    flex: 1,
+    justifyContent: 'flex-start', // Centers vertically
+    alignItems: 'center',     // Centers horizontally
+    padding: 20,
+    paddingTop: 180, // Adjust padding to move content higher
+    backgroundColor: '#f5f5f5',
+  },
+  title: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    marginBottom: 20,
+    color: '#333',
   },
   input: {
-    height: 40,
-    borderColor: '#ddd',
+    width: '80%',             // Set the input width to 80% of the container
+    padding: 15,
+    marginVertical: 10,
     borderWidth: 1,
-    marginBottom: 16,
-    padding: 8,
-    borderRadius: 4,
+    borderColor: '#ccc',
+    borderRadius: 8,
+    backgroundColor: '#fff',
   },
   buttonContainer: {
-    marginBottom: 16,
-  },
-  toggleText: {
-    color: '#3498db',
-    textAlign: 'center',
+    width: '80%',             // Set the button container width to 80%
+    marginVertical: 10,
   },
   bottomContainer: {
     marginTop: 20,
   },
-  emailText: {
-    fontSize: 18,
-    textAlign: 'center',
-    marginBottom: 20,
+  toggleText: {
+    color: '#3498db',
+    textDecorationLine: 'underline',
   },
 });
 
