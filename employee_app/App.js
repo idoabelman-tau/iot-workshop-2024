@@ -8,6 +8,7 @@ import * as Location from 'expo-location';
 import { initializeApp } from '@firebase/app';
 import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, onAuthStateChanged, signOut } from '@firebase/auth';
 import { Alert } from 'react-native';
+import QRCode from 'react-native-qrcode-svg';
 
 //xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
 const firebaseConfig = {
@@ -25,8 +26,45 @@ const app = initializeApp(firebaseConfig);
 
 const LOCATION_TASK_NAME = "background-location-task";
 
-function MapView( { employee_id, company_id } ) {
+// the emails are name@gmail.com and all of the passwords are 1234567890
+const employees = [{
+  employee_id: 1,
+  company_id: 1,
+  name: "guy",
+  user_id: "rRWUKie3aWXNvUlvDSthhs7kGio1"
+}, {
+  employee_id: 2,
+  company_id: 1,
+  name: "buddy",
+  user_id: "mw1sQmRWJUaqn0YlPSrgqDT0Jh63"
+}, {
+  employee_id: 3,
+  company_id: 1,
+  name: "man",
+  user_id: "NNoxdcAlYhcy7trB4PxhcVzF9wH2"
+}, {
+  employee_id: 4,
+  company_id: 2,
+  name: "adam",
+  user_id: "McmAIYF4yQbsAVNAkT3LDuGel1z1"
+}, {
+  employee_id: 5,
+  company_id: 2,
+  name: "jack",
+  user_id: "n81jOz8eFsRqxFSLyTlBK5shCFO2"
+}, {
+  employee_id: 6,
+  company_id: 3,
+  name: "noor",
+  user_id: "6TjZVM9gZZTfJJu3tgy1BfmLP3V2"
+}];
+
+
+const MainScreen = ({navigation, route}) => {
+  const { employee_id, company_id } = route.params;
+
   const [mapData, setMapData] = useState([]);
+  const [confirmationId, setConfirmationId] = useState(null);
   const [error, setError] = useState(null);
   const webref = useRef(null);
 
@@ -39,11 +77,13 @@ function MapView( { employee_id, company_id } ) {
         }
       ])
       .then(response => {
-        pointStrings = response.data.map(shipment => shipment["delivery_address"]);
-        points = pointStrings.map(str =>
-          [parseFloat(str.split(" ")[1].slice(1)),
-            parseFloat(str.split(" ")[2].slice(0,-1))]
-        );
+        points = response.data.map(shipment => {
+          return {
+            coords: [parseFloat(shipment["delivery_address"].split(" ")[1].slice(1)),
+                  parseFloat(shipment["delivery_address"].split(" ")[2].slice(0,-1))],
+            confirmation_id: shipment["confirmation_id"]
+          };
+        });
         setMapData(points);
       }).catch(error => {
         setError(error.message);
@@ -90,6 +130,15 @@ function MapView( { employee_id, company_id } ) {
     }
   };
 
+  const showQRCodeHandler = () => {
+    if (confirmationId == null) {
+      alert("select point first");
+    }
+    else {
+      navigation.navigate('QR', { value: confirmationId });
+    }
+  }
+
   const generateHTML = (data) => {
     return `
       <!DOCTYPE html>
@@ -115,6 +164,7 @@ function MapView( { employee_id, company_id } ) {
           var map;
           var courierPoint;
           var mapLoaded = false;
+          var selected_marker = null;
 
           console.log('Map script loading...');
           (function() {
@@ -139,10 +189,11 @@ function MapView( { employee_id, company_id } ) {
 
                 ${data.map(point => `
                   point = new atlas.data.Feature(
-                    new atlas.data.Point([${point[0]}, ${point[1]}])
+                    new atlas.data.Point([${point.coords[0]}, ${point.coords[1]}]),
+                    {selected: 0, confirmation_id: "${point.confirmation_id}"}
                   );
                   pointsSource.add(point);
-                  coordinates.push([${point[0]}, ${point[1]}]);
+                  coordinates.push([${point.coords[0]}, ${point.coords[1]}]);
                 `).join('')}
 
                 map.layers.add(
@@ -155,7 +206,26 @@ function MapView( { employee_id, company_id } ) {
                   "labels"
                 );
           
-                map.layers.add(new atlas.layer.SymbolLayer(pointsSource));
+                pointsLayer = new atlas.layer.SymbolLayer(pointsSource, null, {
+                  iconOptions: {
+                    image: [
+                      "case",
+                        ["==", ["get", "selected"], 1], // red for the selected marker
+                          "marker-red",
+
+                        "marker-blue", // blue default
+                    ]
+                  }
+                });
+                map.layers.add(pointsLayer);
+
+                map.events.add('click', pointsLayer, function(e) {
+                  if (e.shapes && e.shapes.length > 0) { // if we clicked on a marker
+                    marker = e.shapes[0];
+                    setSelected(marker);
+                  }
+                });
+
                 map.layers.add(new atlas.layer.SymbolLayer(courierSource, null, {
                   iconOptions: {
                     image: "pin-round-red"
@@ -173,6 +243,22 @@ function MapView( { employee_id, company_id } ) {
               console.error('Error initializing map:', error);
             }
           })();
+
+          function setSelected(marker) {
+            props = marker.getProperties();
+            if (props.selected == 0) { // select the current marker instead of the previous one
+              if (selected_marker != null) {
+                selected_props = selected_marker.getProperties();
+                selected_props.selected = 0;
+                selected_marker.setProperties(selected_props);
+              }
+
+              props.selected = 1;
+              marker.setProperties(props);
+              selected_marker = marker;
+              window.ReactNativeWebView.postMessage(props.confirmation_id); // update selected marker's confirmation id
+            }
+          }
 
           function calcRoute() {
             let url = "https://atlas.microsoft.com/route/directions/json?";
@@ -235,65 +321,36 @@ function MapView( { employee_id, company_id } ) {
             });
           }
         </script>
-
-        <Button onclick="calcRoute()">Show best route</Button>
       </body>
       </html>
     `};
 
   return (
-    <View style={styles.container}>
+    <View style={styles.mapContainer}>
       <WebView 
         ref={webref}
         originWhitelist={['*']} 
         source={{ html: generateHTML(mapData) }}
         onMessage={(event) => {
-          console.log(event.nativeEvent.data);
+          setConfirmationId(event.nativeEvent.data);
         }}
         onLoad={onLoadHandler}  
       />
+      <Button title="Show best route" onPress={() => webref.current.injectJavaScript("calcRoute()")} />
+      <Button title="Show QR Code" onPress={ showQRCodeHandler } />
     </View>
   );
-}
+};
 
-// the emails are name@gmail.com and all of the passwords are 1234567890
-const employees = [{
-  employee_id: 1,
-  company_id: 1,
-  name: "guy",
-  user_id: "rRWUKie3aWXNvUlvDSthhs7kGio1"
-}, {
-  employee_id: 2,
-  company_id: 1,
-  name: "buddy",
-  user_id: "mw1sQmRWJUaqn0YlPSrgqDT0Jh63"
-}, {
-  employee_id: 3,
-  company_id: 1,
-  name: "man",
-  user_id: "NNoxdcAlYhcy7trB4PxhcVzF9wH2"
-}, {
-  employee_id: 4,
-  company_id: 2,
-  name: "adam",
-  user_id: "McmAIYF4yQbsAVNAkT3LDuGel1z1"
-}, {
-  employee_id: 5,
-  company_id: 2,
-  name: "jack",
-  user_id: "n81jOz8eFsRqxFSLyTlBK5shCFO2"
-}, {
-  employee_id: 6,
-  company_id: 3,
-  name: "noor",
-  user_id: "6TjZVM9gZZTfJJu3tgy1BfmLP3V2"
-}];
-
-
-const MainScreen = ({navigation, route}) => {
-  const { employee_id, company_id } = route.params;
+const QRScreen = ({navigation, route}) => {
+  const { value } = route.params;
   return (
-    <MapView employee_id={employee_id}  company_id={company_id} />
+    <View style={styles.QRContainer}>
+      <QRCode
+        value={value}
+        size={200}
+      />
+    </View>
   );
 };
 
@@ -459,14 +516,20 @@ function App() {
           </Stack.Screen>
         )}
         <Stack.Screen name="Main" component={MainScreen} />
+        <Stack.Screen name="QR" component={QRScreen} />
       </Stack.Navigator>
     </NavigationContainer>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
+  mapContainer: {
     flex: 1,
+  },
+  QRContainer :  {
+    flex: 1,
+    justifyContent: 'flex-start', // Centers vertically
+    alignItems: 'center',     // Centers horizontally
   },
 });
 

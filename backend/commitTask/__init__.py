@@ -2,6 +2,8 @@ import logging
 import json
 import pyodbc
 import os
+import random
+import string
 import azure.functions as func
 from datetime import datetime
 
@@ -41,10 +43,14 @@ def main(req: func.HttpRequest) -> func.HttpResponse:
                     logging.error(f"Invalid date format for delivery_time: {item['delivery_time']}. Error: {str(ve)}")
                     return func.HttpResponse(f"Invalid date format: {item['delivery_time']}", status_code=400)
          
+                phone_number = item['phone_number'];
+                tracking_id = ''.join(random.choices(string.ascii_letters + string.digits, k=10)) # 10 character random string
+                confirmation_id = ''.join(random.choices(string.ascii_letters + string.digits, k=255)) # 10 character random string
+                
                 cursor.execute("""
-                    INSERT INTO dbo.Shipments (company_id, user_id, courier_id, delivery_address, delivery_time, status)
-                    VALUES (?, ?, ?, ?, ?, ?)
-                """, company_id, user_id, courier_id, delivery_address, delivery_time, status)
+                    INSERT INTO dbo.Shipments (company_id, user_id, courier_id, delivery_address, delivery_time, status, phone_number, tracking_id, confirmation_id)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """, company_id, user_id, courier_id, delivery_address, delivery_time, status, phone_number, tracking_id, confirmation_id)
             
             conn.commit()
         

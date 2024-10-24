@@ -241,12 +241,12 @@ function MapView( { employee_id, company_id } ) {
             )
 
             submission_array = pointsToSubmit.map(
-              (marker) => { return {company_id: "1",
+              (marker) => { return {company_id: "${company_id}",
                             user_id: "1",
-                            courier_id:"1",
+                            courier_id:"${employee_id}",
                             delivery_address: "POINT (" + marker.getCoordinates()[0] + " " + marker.getCoordinates()[1] + ")",
                             delivery_time: "10/8/2024",
-                            phone_number: marker.phone_number,
+                            phone_number: marker.getProperties().phone_number,
                             status:"pending"} }
             );
 
