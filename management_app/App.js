@@ -6,7 +6,7 @@ import { WebView } from 'react-native-webview';
 import axios from 'axios';
 import { initializeApp } from '@firebase/app';
 import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, onAuthStateChanged, signOut } from '@firebase/auth';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import { useIsFocused } from '@react-navigation/native';
 
 
@@ -326,24 +326,33 @@ const AddEmployeeScreen = ({ navigation, route }) => {
     }
   
     try {
-      // Create new user
-      const userCredential = await createUserWithEmailAndPassword(auth, newEmployeeName + "@gmail.com", "1234567890");
+      // Create new user in Firebase Authentication
+      const userCredential = await createUserWithEmailAndPassword(auth, `${newEmployeeName}@gmail.com`, "1234567890");
       const userId = userCredential.user.uid;
-  
+
       // Create the new employee object
       const newEmployee = {
-        employee_id: employees.length + 1, // Generate a new employee ID
-        company_id: admin_company_id,
         name: newEmployeeName,
-        user_id: userId
+        company_id: admin_company_id,
+        role: "courier", // set role to courier
+        UID: userId
       };
+
+      // make the POST request to the Azure Function
+      const response = await axios.post('https://getDb.azurewebsites.net/api/addEmployee', newEmployee, {
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
   
-      // Update local employees list here (need to replace to upadte in azure database)
-  
-      Alert.alert("Employee added successfully!");
-      navigation.goBack(); // Navigate back to the MainScreen
+      if (response.status === 200) {
+        Alert.alert("Employee added successfully!");
+        navigation.goBack(); // Navigate back to the previous screen
+      } else {
+        Alert.alert("Error adding employee: " + response.data);
+      }
     } catch (error) {
-      Alert.alert("Error adding employee: " + error.message);
+      Alert.alert("Error adding employee: " + (error.response?.data || error.message));
     }
   };
 
@@ -370,36 +379,38 @@ const MainScreen = ({ route }) => {
   const [employees, setEmployees] = useState([]); // State to store fetched employees
   const [error, setError] = useState(null); // Error state
 
-  useEffect(() => {
-    const fetchEmployees = async () => {
-      try {
-        // Fetching employees using your Azure function
-        const response = await axios.post('https://getDb.azurewebsites.net/api/getEmployees', {
-          company_id: admin_company_id, // Use company_id from route params
-          role: 'courier' // Specify the role to courier
-        });
+  const fetchEmployees = async () => {
+    try {
+      // Fetching employees using Azure function
+      const response = await axios.post('https://getDb.azurewebsites.net/api/getEmployees', {
+        company_id: admin_company_id, // Use company_id from route params
+        role: 'courier' // Specify the role to courier
+      });
 
-        setEmployees(response.data); // Set the fetched employees
-      } catch (err) {
-        setError(err.message); // Set error message
-      }
-    };
-
-    fetchEmployees();
-  }, [admin_company_id]);
-
-    // Error state
-    if (error) {
-      return (
-        <View style={styles4.container}>
-          <Text style={styles4.errorText}>Error fetching employees: {error}</Text>
-          <Button title="Try Again" onPress={() => {
-            setError(null); // Reset the error
-            fetchEmployees(); // Try fetching again
-          }} color="#e74c3c" />
-        </View>
-      );
+      setEmployees(response.data); // Set the fetched employees
+    } catch (err) {
+      setError(err.message); // Set error message
     }
+  };
+
+  useFocusEffect(
+    React.useCallback(() => {
+      fetchEmployees(); // Fetch employees when the screen is focused
+    }, [admin_company_id])
+  );
+
+  // Error state
+  if (error) {
+    return (
+      <View style={styles4.container}>
+        <Text style={styles4.errorText}>Error fetching employees: {error}</Text>
+        <Button title="Try Again" onPress={() => {
+          setError(null); // Reset the error
+          fetchEmployees(); // Try fetching again
+        }} color="#e74c3c" />
+      </View>
+    );
+  }
 
   return (
     <View style={styles4.container}>
@@ -508,7 +519,7 @@ const AuthenticatedScreen = ({ user, handleAuthentication, navigation }) => {
     );
   }
 
-    // Find the admin using the user.uid from Firebase
+    // check if Admin
     const isAdmin = userData && userData.role === 'admin';
 
   // Log information when an admin is found
