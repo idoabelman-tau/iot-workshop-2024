@@ -5,44 +5,52 @@
     <title>Courier QR Scanner</title>
 </head>
 <body>
-<!-- QR scanner based on https://github.com/nimiq/qr-scanner/tree/master -->
+<!-- QR scanner based on https://github.com/nimiq/qr-scanner -->
 
 <h1>Scan QR from Courier:</h1>
 <div id="video-container">
     <video id="qr-video"></video>
 </div>
 
-<b>Detected QR code: </b>
-<span id="cam-qr-result">None</span>
-<br>
-<b>Last detected at: </b>
-<span id="cam-qr-result-timestamp"></span>
-<br>
-
 <script type="module">
     import QrScanner from "./qr-scanner.min.js";
 
     const video = document.getElementById('qr-video');
     const videoContainer = document.getElementById('video-container');
-    const camQrResult = document.getElementById('cam-qr-result');
-    const camQrResultTimestamp = document.getElementById('cam-qr-result-timestamp');
 
-    function setResult(label, result) {
-        console.log(result.data);
-        label.textContent = result.data;
-        camQrResultTimestamp.textContent = new Date().toString();
-        label.style.color = 'teal';
-        clearTimeout(label.highlightTimeout);
-        label.highlightTimeout = setTimeout(() => label.style.color = 'inherit', 100);
+    var handlingRead = false;
+
+    function handleRead(result) {
+        if (!handlingRead) { // read one result at a time
+            handlingRead = true;
+            const urlParams = new URLSearchParams(window.location.search);
+            const tracking_id = urlParams.get('id');
+
+            fetch("https://gettasks.azurewebsites.net/api/finishTask", {
+                method: "POST",
+                body: JSON.stringify({
+                tracking_id: tracking_id,
+                confirmation_id: result.data,
+                }),
+                headers: {
+                "Content-type": "application/json; charset=UTF-8"
+                }
+            }).then((response)=>{
+                if (response.status == 200) {
+                    scanner.stop();
+                    alert("delivery marked complete");
+                }
+                else {
+                    alert("error");
+                    handlingRead = false;
+                }
+            });  
+        }
     }
 
     // ####### Web Cam Scanning #######
 
-    const scanner = new QrScanner(video, result => setResult(camQrResult, result), {
-        onDecodeError: error => {
-            camQrResult.textContent = error;
-            camQrResult.style.color = 'inherit';
-        },
+    const scanner = new QrScanner(video, result => handleRead(result), {
         highlightScanRegion: true,
         highlightCodeOutline: true,
     });
