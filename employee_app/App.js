@@ -59,12 +59,13 @@ const employees = [{
   user_id: "6TjZVM9gZZTfJJu3tgy1BfmLP3V2"
 }];
 
+var tasks = [];
 
 const MainScreen = ({navigation, route}) => {
   const { employee_id, company_id } = route.params;
 
   const [mapData, setMapData] = useState([]);
-  const [confirmationId, setConfirmationId] = useState(null);
+  const [shipmentId, setShipmentId] = useState(null);
   const [error, setError] = useState(null);
   const webref = useRef(null);
 
@@ -77,11 +78,12 @@ const MainScreen = ({navigation, route}) => {
         }
       ])
       .then(response => {
+        tasks = response.data;
         points = response.data.map(shipment => {
           return {
             coords: [parseFloat(shipment["delivery_address"].split(" ")[1].slice(1)),
                   parseFloat(shipment["delivery_address"].split(" ")[2].slice(0,-1))],
-            confirmation_id: shipment["confirmation_id"]
+            shipment_id: shipment["shipment_id"]
           };
         });
         setMapData(points);
@@ -130,12 +132,12 @@ const MainScreen = ({navigation, route}) => {
     }
   };
 
-  const showQRCodeHandler = () => {
-    if (confirmationId == null) {
+  const showTaskHandler = () => {
+    if (shipmentId == null) {
       alert("select point first");
     }
     else {
-      navigation.navigate('QR', { value: confirmationId });
+      navigation.navigate('Task', { shipmentId: shipmentId });
     }
   }
 
@@ -190,7 +192,7 @@ const MainScreen = ({navigation, route}) => {
                 ${data.map(point => `
                   point = new atlas.data.Feature(
                     new atlas.data.Point([${point.coords[0]}, ${point.coords[1]}]),
-                    {selected: 0, confirmation_id: "${point.confirmation_id}"}
+                    {selected: 0, shipment_id: "${point.shipment_id}"}
                   );
                   pointsSource.add(point);
                   coordinates.push([${point.coords[0]}, ${point.coords[1]}]);
@@ -256,7 +258,7 @@ const MainScreen = ({navigation, route}) => {
               props.selected = 1;
               marker.setProperties(props);
               selected_marker = marker;
-              window.ReactNativeWebView.postMessage(props.confirmation_id); // update selected marker's confirmation id
+              window.ReactNativeWebView.postMessage(props.shipment_id); // update selected marker's shipment id
             }
           }
 
@@ -332,22 +334,24 @@ const MainScreen = ({navigation, route}) => {
         originWhitelist={['*']} 
         source={{ html: generateHTML(mapData) }}
         onMessage={(event) => {
-          setConfirmationId(event.nativeEvent.data);
+          setShipmentId(Number(event.nativeEvent.data));
         }}
         onLoad={onLoadHandler}  
       />
       <Button title="Show best route" onPress={() => webref.current.injectJavaScript("calcRoute()")} />
-      <Button title="Show QR Code" onPress={ showQRCodeHandler } />
+      <Button title="Show task details" onPress={ showTaskHandler } />
     </View>
   );
 };
 
-const QRScreen = ({navigation, route}) => {
-  const { value } = route.params;
+const TaskScreen = ({navigation, route}) => {
+  const { shipmentId } = route.params;
+  const task = tasks.find(t => t["shipment_id"] === shipmentId);
   return (
-    <View style={styles.QRContainer}>
+    <View style={styles.TaskContainer}>
+      <Text style={styles1.smallText}>Client phone number: {task["phone_number"]}</Text>
       <QRCode
-        value={value}
+        value={task["confirmation_id"]}
         size={200}
       />
     </View>
@@ -516,7 +520,7 @@ function App() {
           </Stack.Screen>
         )}
         <Stack.Screen name="Main" component={MainScreen} />
-        <Stack.Screen name="QR" component={QRScreen} />
+        <Stack.Screen name="Task" component={TaskScreen} />
       </Stack.Navigator>
     </NavigationContainer>
   );
@@ -526,7 +530,7 @@ const styles = StyleSheet.create({
   mapContainer: {
     flex: 1,
   },
-  QRContainer :  {
+  TaskContainer :  {
     flex: 1,
     justifyContent: 'flex-start', // Centers vertically
     alignItems: 'center',     // Centers horizontally
