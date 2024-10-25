@@ -41,7 +41,7 @@ function MapView( { employee_id, company_id } ) {
           return {
             coords: [parseFloat(shipment["delivery_address"].split(" ")[1].slice(1)),
                   parseFloat(shipment["delivery_address"].split(" ")[2].slice(0,-1))],
-            phone_number: shipment["phone_number"]
+            email: shipment["email"]
           };
         });
         setMapData(points);
@@ -159,7 +159,7 @@ function MapView( { employee_id, company_id } ) {
                 ${data.map(point => `
                   point = new atlas.data.Feature(
                     new atlas.data.Point([${point.coords[0]}, ${point.coords[1]}]),
-                    {selected: 0, submitted: 1, phone_number: ${point.phone_number}}
+                    {selected: 0, submitted: 1, email: "${point.email}"}
                   );
                   pointsSource.add(point);
                 `).join('')}
@@ -173,7 +173,7 @@ function MapView( { employee_id, company_id } ) {
                           "marker-red",
                         ["==", ["get", "submitted"], 1], // dark blue for submitted (i.e. in the database)
                           "marker-darkblue",
-                        ["has", "phone_number"], // yellow for unsubmitted with an updated phone number (to be submitted)
+                        ["has", "email"], // yellow for unsubmitted with an updated phone number (to be submitted)
                           "marker-yellow",
 
                         "marker-blue", // blue default
@@ -226,11 +226,11 @@ function MapView( { employee_id, company_id } ) {
               props.selected = 1;
               marker.setProperties(props);
               selected_marker = marker;
-              if (props.phone_number) {
-                $("#phone_number").val(props.phone_number);
+              if (props.email) {
+                $("#email").val(props.email);
               }
               else {
-                $("#phone_number").val("");
+                $("#email").val("");
               }
             }
           }
@@ -238,19 +238,17 @@ function MapView( { employee_id, company_id } ) {
           function submitTasks() {
             // submit points that have the phone number set and weren't already submitted
             pointsToSubmit = pointsSource.shapes.filter(
-              (marker) => { return "phone_number" in marker.getProperties() && 
+              (marker) => { return "email" in marker.getProperties() && 
                                   marker.getProperties().submitted == 0 }
             )
 
             submission_array = pointsToSubmit.map(
-              (marker) => { return {company_id: "${company_id}",
-                            user_id: "1",
-                            courier_id:"1",
+              (marker) => { return {company_id: ${company_id},
                             delivery_address: "POINT (" + marker.getCoordinates()[0] + " " + marker.getCoordinates()[1] + ")",
                             delivery_time: "10/8/2024",
-                            phone_number: marker.getProperties().phone_number,
+                            email: marker.getProperties().email,
                             status:"pending",
-                            UID: ${employee_id}} }
+                            UID: "${employee_id}"} }
             );
 
             fetch ("https://gettasks.azurewebsites.net/api/commitTask?", {
@@ -273,9 +271,9 @@ function MapView( { employee_id, company_id } ) {
             });
           }
 
-          function updatePhone() {
+          function updateEmail() {
             props = selected_marker.getProperties();
-            props.phone_number = $("#phone_number").val();
+            props.email = $("#email").val();
             selected_marker.setProperties(props);
           }
         </script>
@@ -294,9 +292,9 @@ function MapView( { employee_id, company_id } ) {
         <div id="map" style="position:relative;width:100%;min-width:290px;height:500px;"></div>
 
         <div class="ui-widget">
-            <label for="phone_number">Client phone number: </label>
-            <input id="phone_number">
-            <Button onclick="updatePhone()">Update</Button>
+            <label for="email">Client email: </label>
+            <input id="email">
+            <Button onclick="updateEmail()">Update</Button>
         </div>
         <div class="ui-widget">
           <Button onclick="submitTasks()">Submit tasks</Button>
@@ -315,56 +313,6 @@ function MapView( { employee_id, company_id } ) {
     </View>
   );
 }
-/*
-const employees = [{
-  employee_id: 1,
-  company_id: 1,
-  name: "guy",
-  user_id: "rRWUKie3aWXNvUlvDSthhs7kGio1"
-}, {
-  employee_id: 2,
-  company_id: 1,
-  name: "buddy",
-  user_id: "mw1sQmRWJUaqn0YlPSrgqDT0Jh63"
-}, {
-  employee_id: 3,
-  company_id: 1,
-  name: "man",
-  user_id: "NNoxdcAlYhcy7trB4PxhcVzF9wH2"
-}, {
-  employee_id: 7,
-  company_id: 2,
-  name: "mike",
-  user_id: "mgxGtZig6kVEehMU9ohsavA6N7r1"
-}, {
-  employee_id: 5,
-  company_id: 2,
-  name: "jack",
-  user_id: "n81jOz8eFsRqxFSLyTlBK5shCFO2"
-}, {
-  employee_id: 6,
-  company_id: 3,
-  name: "noor",
-  user_id: "6TjZVM9gZZTfJJu3tgy1BfmLP3V2"
-}];
-
-const admins = [{
-  admin_id: 7,
-  company_id: 1,
-  name: "Admin1",
-  user_id: "V6lMmiF6zdRpz9U5aFzd1Pr2xE93"
-}, {
-  admin_id: 8,
-  company_id: 2,
-  name: "Admin2",
-  user_id: "DZ4Q4BVZw2esryz9ejHdPpsLfTE3"
-}, {
-  admin_id: 9,
-  company_id: 3,
-  name: "Admin3",
-  user_id: "VAikv8G3zWW694SOym2fLzkQa523"
-}];
-*/
 
 //-----------------------------------------------------------------------------------------------------------------------------------------------------------------------
 const AddEmployeeScreen = ({ navigation, route }) => {
@@ -462,7 +410,7 @@ const MainScreen = ({ route }) => {
         {employees.map(employee => (
           <Button
             title={employee.name}
-            key={employee.employee_id}
+            key={employee.UID}
             onPress={() =>
               navigation.navigate('Employee', { employee_id: employee.UID, company_id: employee.company_id })
             }

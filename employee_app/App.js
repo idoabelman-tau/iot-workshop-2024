@@ -316,7 +316,7 @@ const TaskScreen = ({navigation, route}) => {
   const task = tasks.find(t => t["shipment_id"] === shipmentId);
   return (
     <View style={styles.TaskContainer}>
-      <Text style={styles1.smallText}>Client phone number: {task["phone_number"]}</Text>
+      <Text style={styles1.smallText}>Client email: {task["email"]}</Text>
       <QRCode
         value={task["confirmation_id"]}
         size={200}
