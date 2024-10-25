@@ -36,6 +36,7 @@ def main(req: func.HttpRequest) -> func.HttpResponse:
                 courier_id = int(item['courier_id'])
                 delivery_address = item['delivery_address']
                 status = item['status']
+                UID= item['UID']
                 try:
                     delivery_time = item['delivery_time'] # Change to date type
                 
@@ -48,9 +49,9 @@ def main(req: func.HttpRequest) -> func.HttpResponse:
                 confirmation_id = ''.join(random.choices(string.ascii_letters + string.digits, k=255)) # 10 character random string
                 
                 cursor.execute("""
-                    INSERT INTO dbo.Shipments (company_id, user_id, courier_id, delivery_address, delivery_time, status, phone_number, tracking_id, confirmation_id)
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-                """, company_id, user_id, courier_id, delivery_address, delivery_time, status, phone_number, tracking_id, confirmation_id)
+                    INSERT INTO dbo.Shipments (company_id, user_id, courier_id, delivery_address, delivery_time, status, phone_number, tracking_id, confirmation_id, UID)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """, company_id, user_id, courier_id, delivery_address, delivery_time, status, phone_number, tracking_id, confirmation_id, UID)
             
             conn.commit()
         
