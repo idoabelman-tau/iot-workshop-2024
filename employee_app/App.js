@@ -314,6 +314,20 @@ const MainScreen = ({navigation, route}) => {
 const TaskScreen = ({navigation, route}) => {
   const { shipmentId } = route.params;
   const task = tasks.find(t => t["shipment_id"] === shipmentId);
+
+  const sendEmailHandler = () => {
+    axios.post('https://gettasks.azurewebsites.net/api/sendTrackingEmail?',
+        {
+          "shipment_id" : shipmentId
+        }
+      )
+      .then(response => {
+        alert("email sent");
+      }).catch(error => {
+        alert("error: " + error.message)
+      });
+  }
+
   return (
     <View style={styles.TaskContainer}>
       <Text style={styles1.smallText}>Client email: {task["email"]}</Text>
@@ -321,6 +335,7 @@ const TaskScreen = ({navigation, route}) => {
         value={task["confirmation_id"]}
         size={200}
       />
+      <Button title="Send tracking email" onPress={ sendEmailHandler } />
     </View>
   );
 };
