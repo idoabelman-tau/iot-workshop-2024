@@ -37,11 +37,13 @@ function MapView( { employee_id, company_id } ) {
         }
       ])
       .then(response => {
-        pointStrings = response.data.map(shipment => shipment["delivery_address"]);
-        points = pointStrings.map(str =>
-          [parseFloat(str.split(" ")[1].slice(1)),
-            parseFloat(str.split(" ")[2].slice(0,-1))]
-        );
+        points = response.data.map(shipment => {
+          return {
+            coords: [parseFloat(shipment["delivery_address"].split(" ")[1].slice(1)),
+                  parseFloat(shipment["delivery_address"].split(" ")[2].slice(0,-1))],
+            phone_number: shipment["phone_number"]
+          };
+        });
         setMapData(points);
       }).catch(error => {
         setError(error.message);
@@ -156,8 +158,8 @@ function MapView( { employee_id, company_id } ) {
           
                 ${data.map(point => `
                   point = new atlas.data.Feature(
-                    new atlas.data.Point([${point[0]}, ${point[1]}]),
-                    {selected: 0, submitted: 1}
+                    new atlas.data.Point([${point.coords[0]}, ${point.coords[1]}]),
+                    {selected: 0, submitted: 1, phone_number: ${point.phone_number}}
                   );
                   pointsSource.add(point);
                 `).join('')}
