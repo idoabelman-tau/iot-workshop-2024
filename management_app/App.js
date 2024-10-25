@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, Button, TextInput, StyleSheet, Dimensions, Alert, TouchableOpacity, Pressable } from 'react-native';
+import { View, Text, Button, TextInput, StyleSheet, Dimensions, Alert, TouchableOpacity, Pressable, ActivityIndicator } from 'react-native';
 import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { WebView } from 'react-native-webview';
@@ -33,7 +33,7 @@ function MapView( { employee_id, company_id } ) {
     axios.post('https://gettasks.azurewebsites.net/api/getTasks?', [
         {
           "company_id" : company_id,
-          "courier_id" : employee_id
+          "UID" : employee_id
         }
       ])
       .then(response => {
@@ -243,11 +243,12 @@ function MapView( { employee_id, company_id } ) {
             submission_array = pointsToSubmit.map(
               (marker) => { return {company_id: "${company_id}",
                             user_id: "1",
-                            courier_id:"${employee_id}",
+                            courier_id:"1",
                             delivery_address: "POINT (" + marker.getCoordinates()[0] + " " + marker.getCoordinates()[1] + ")",
                             delivery_time: "10/8/2024",
                             phone_number: marker.getProperties().phone_number,
-                            status:"pending"} }
+                            status:"pending",
+                            UID: ${employee_id}} }
             );
 
             fetch ("https://gettasks.azurewebsites.net/api/commitTask?", {
@@ -312,7 +313,7 @@ function MapView( { employee_id, company_id } ) {
     </View>
   );
 }
-
+/*
 const employees = [{
   employee_id: 1,
   company_id: 1,
@@ -329,10 +330,10 @@ const employees = [{
   name: "man",
   user_id: "NNoxdcAlYhcy7trB4PxhcVzF9wH2"
 }, {
-  employee_id: 4,
+  employee_id: 7,
   company_id: 2,
-  name: "adam",
-  user_id: "McmAIYF4yQbsAVNAkT3LDuGel1z1"
+  name: "mike",
+  user_id: "mgxGtZig6kVEehMU9ohsavA6N7r1"
 }, {
   employee_id: 5,
   company_id: 2,
@@ -361,19 +362,15 @@ const admins = [{
   name: "Admin3",
   user_id: "VAikv8G3zWW694SOym2fLzkQa523"
 }];
-
+*/
 
 //-----------------------------------------------------------------------------------------------------------------------------------------------------------------------
 const AddEmployeeScreen = ({ navigation, route }) => {
   const [newEmployeeName, setNewEmployeeName] = useState('');
-  const loggedInAdminId = route.params.loggedInAdminId;
-
-  // Find the admin to get their company_id
-  const admin = admins.find(admin => admin.user_id === loggedInAdminId);
-  const companyId = admin ? admin.company_id : null;
+  const admin_company_id = route.params.admin_company_id;
 
   const addEmployee = async () => {
-    if (!newEmployeeName || !companyId) {
+    if (!newEmployeeName || !admin_company_id) {
       Alert.alert("Please enter a name for the employee.");
       return;
     }
@@ -386,7 +383,7 @@ const AddEmployeeScreen = ({ navigation, route }) => {
       // Create the new employee object
       const newEmployee = {
         employee_id: employees.length + 1, // Generate a new employee ID
-        company_id: companyId,
+        company_id: admin_company_id,
         name: newEmployeeName,
         user_id: userId
       };
@@ -418,7 +415,41 @@ const AddEmployeeScreen = ({ navigation, route }) => {
 
 const MainScreen = ({ route }) => {
   const navigation = useNavigation();
-  const loggedInAdminId = route.params.loggedInAdminId;
+  const { admin_company_id } = route.params;
+
+  const [employees, setEmployees] = useState([]); // State to store fetched employees
+  const [error, setError] = useState(null); // Error state
+
+  useEffect(() => {
+    const fetchEmployees = async () => {
+      try {
+        // Fetching employees using your Azure function
+        const response = await axios.post('https://getDb.azurewebsites.net/api/getEmployees', {
+          company_id: admin_company_id, // Use company_id from route params
+          role: 'courier' // Specify the role to courier
+        });
+
+        setEmployees(response.data); // Set the fetched employees
+      } catch (err) {
+        setError(err.message); // Set error message
+      }
+    };
+
+    fetchEmployees();
+  }, [admin_company_id]);
+
+    // Error state
+    if (error) {
+      return (
+        <View style={styles4.container}>
+          <Text style={styles4.errorText}>Error fetching employees: {error}</Text>
+          <Button title="Try Again" onPress={() => {
+            setError(null); // Reset the error
+            fetchEmployees(); // Try fetching again
+          }} color="#e74c3c" />
+        </View>
+      );
+    }
 
   return (
     <View style={styles4.container}>
@@ -426,26 +457,24 @@ const MainScreen = ({ route }) => {
 
       {/* Employee Buttons */}
       <View style={styles4.employeeButtonsContainer}>
-        {employees
-          .filter(employee => employee.company_id === (admins.find(admin => admin.user_id === loggedInAdminId)?.company_id))
-          .map(employee => (
-            <Button
-              title={employee.name}
-              key={employee.employee_id}
-              onPress={() =>
-                navigation.navigate('Employee', { employee_id: employee.employee_id, company_id: employee.company_id })
-              }
-              color={styles4.button.color} // Use the color from styles
-              style={styles4.button}
-              titleStyle={{ fontSize: 18 }} // Adjust the font size here
-            />
-          ))}
+        {employees.map(employee => (
+          <Button
+            title={employee.name}
+            key={employee.employee_id}
+            onPress={() =>
+              navigation.navigate('Employee', { employee_id: employee.UID, company_id: employee.company_id })
+            }
+            color={styles4.button.color} 
+            style={styles4.button}
+            titleStyle={{ fontSize: 18 }} 
+          />
+        ))}
       </View>
 
       {/* Add Employee Button at the bottom */}
       <Button 
         title="Add Employee" 
-        onPress={() => navigation.navigate('AddEmployee', { loggedInAdminId })} 
+        onPress={() => navigation.navigate('AddEmployee', { admin_company_id })} 
         color={styles4.addButton.color} // Use the color from styles
         style={styles4.addButton} 
       />
@@ -496,15 +525,47 @@ const AuthScreen = ({ email, setEmail, password, setPassword, isLogin, setIsLogi
 
 
 const AuthenticatedScreen = ({ user, handleAuthentication, navigation }) => {
+  const [userData, setUserData] = useState(null);
+  const [error, setError] = useState(null);
+  const [loading, setLoading] = useState(true); // Add a loading state
+
+  useEffect(() => {
+      const fetchData = async () => {
+          try {
+              const response = await axios.post('https://getDb.azurewebsites.net/api/getUsers', {
+                  UID: user.uid // Use the dynamic UID here
+              });
+
+              setUserData(response.data[0]);
+          } catch (err) {
+              setError(err.message);
+          } finally {
+              setLoading(false); // Set loading to false after fetch completes
+          }
+      };
+
+      fetchData();
+  }, [user.uid]); // Add uid as a dependency
+
+  if (loading) {
+    // Show a loading indicator while data is being fetched
+    return (
+      <View style={styles1.authContainer}>
+        <Text style={styles1.title}>Loading...</Text>
+        {/* ActivityIndicator */}
+        <ActivityIndicator size="large" color="#0000ff" />
+      </View>
+    );
+  }
 
     // Find the admin using the user.uid from Firebase
-  const admin = admins.find(e => e.user_id === user.uid);
+    const isAdmin = userData && userData.role === 'admin';
 
   // Log information when an admin is found
-  if (admin) {
-    console.log(`User Logged In: Name: ${admin.name}, Admin ID: ${admin.admin_id}, User ID: ${user.uid}, Company ID: ${admin.company_id}`);
+  if (isAdmin) {
+    console.log(`User Logged In: Name: ${userData.name}, Admin ID: ${userData.user_id}, User ID: ${userData.UID}, Company ID: ${userData.company_id}`);
   }
-  if (!admin) {
+  if (!isAdmin) {
     return (
       <View style={styles1.authContainer}>
         <Text style={styles1.title}>Admin not found</Text>
@@ -518,7 +579,7 @@ const AuthenticatedScreen = ({ user, handleAuthentication, navigation }) => {
     <View style={styles1.authContainer}>
       <Text style={styles1.title}>Welcome</Text>
       <Text style={styles1.emailText}>{user.email}</Text>
-      <Button title="Employee list" onPress={() => navigation.navigate('Main', { loggedInAdminId: admin.user_id })} />
+      <Button title="Employee list" onPress={() => navigation.navigate('Main', { admin_company_id: userData.company_id })} />
       <Button title="Logout" onPress={handleAuthentication} color="#e74c3c" />
     </View>
   );

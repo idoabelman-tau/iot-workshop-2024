@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useRef } from 'react';
-import { View, Text, Button, TextInput, StyleSheet, Platform, ScrollView } from 'react-native';
+import { View, Text, Button, TextInput, StyleSheet, Platform, ScrollView, ActivityIndicator } from 'react-native';
 import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { WebView } from 'react-native-webview';
@@ -25,7 +25,7 @@ const app = initializeApp(firebaseConfig);
 //xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
 
 const LOCATION_TASK_NAME = "background-location-task";
-
+/*
 // the emails are name@gmail.com and all of the passwords are 1234567890
 const employees = [{
   employee_id: 1,
@@ -58,7 +58,7 @@ const employees = [{
   name: "noor",
   user_id: "6TjZVM9gZZTfJJu3tgy1BfmLP3V2"
 }];
-
+*/
 
 const MainScreen = ({navigation, route}) => {
   const { employee_id, company_id } = route.params;
@@ -73,7 +73,7 @@ const MainScreen = ({navigation, route}) => {
     axios.post('https://gettasks.azurewebsites.net/api/getTasks?', [
         {
           "company_id" : company_id,  // Adjust company_id if needed
-          "courier_id" : employee_id   // Use employee_id for fetching specific delivery points
+          "UID" : employee_id   // Use employee_id for fetching specific delivery points
         }
       ])
       .then(response => {
@@ -391,15 +391,47 @@ const AuthScreen = ({ email, setEmail, password, setPassword, isLogin, setIsLogi
 
 
 const AuthenticatedScreen = ({ user, handleAuthentication, navigation }) => {
+  const [userData, setUserData] = useState(null);
+  const [error, setError] = useState(null);
+  const [loading, setLoading] = useState(true); // Add a loading state
+
+  useEffect(() => {
+      const fetchData = async () => {
+          try {
+              const response = await axios.post('https://getDb.azurewebsites.net/api/getUsers', {
+                  UID: user.uid // Use the dynamic UID here
+              });
+
+              setUserData(response.data[0]);
+          } catch (err) {
+              setError(err.message);
+          } finally {
+              setLoading(false); // Set loading to false after fetch completes
+          }
+      };
+
+      fetchData();
+  }, [user.uid]); // Add uid as a dependency
+
+  if (loading) {
+    // Show a loading indicator while data is being fetched
+    return (
+      <View style={styles1.authContainer}>
+        <Text style={styles1.title}>Loading...</Text>
+        {/* ActivityIndicator */}
+        <ActivityIndicator size="large" color="#0000ff" />
+      </View>
+    );
+  }
 
   // Find the employee using the user.uid from Firebase
-  const employee = employees.find(e => e.user_id === user.uid);
+  const isEmployee = userData && userData.role === 'courier';
 
   // Log information when an employee is found
-  if (employee) {
-    console.log(`User Logged In: Name: ${employee.name}, Employee ID: ${employee.employee_id}, User ID: ${user.uid}, Company ID: ${employee.company_id}`);
+  if (isEmployee) {
+    console.log(`User Logged In: Name: ${userData.name}, Employee ID: ${userData.user_id}, User UID: ${userData.UID}, Company ID: ${userData.company_id}`);
   }
-  if (!employee) {
+  if (!isEmployee) {
     return (
       <View style={styles1.authContainer}>
         <Text style={styles1.title}>Employee not found</Text>
@@ -415,7 +447,7 @@ const AuthenticatedScreen = ({ user, handleAuthentication, navigation }) => {
       <Text style={styles1.title}>Welcome</Text>
       <Text style={styles1.emailText}>{user.email}</Text>
       {/* Pass the employee_id instead of user_id to MainScreen */}
-      <Button title="Go to Map" onPress={() => navigation.navigate('Main', { employee_id: employee.employee_id, company_id: employee.company_id })} />
+      <Button title="Go to Map" onPress={() => navigation.navigate('Main', { employee_id: userData.UID, company_id: userData.company_id})} />
       <Button title="Logout" onPress={handleAuthentication} color="#e74c3c" />
     </View>
   );
