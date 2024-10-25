@@ -18,35 +18,39 @@
     const video = document.getElementById('qr-video');
     const videoContainer = document.getElementById('video-container');
 
-    function setResult(result) {
-        const urlParams = new URLSearchParams(window.location.search);
-        const tracking_id = urlParams.get('id');
+    var handlingRead = false;
 
-        fetch("https://gettasks.azurewebsites.net/api/finishTask", {
-          method: "POST",
-          body: JSON.stringify({
-            tracking_id: tracking_id,
-            confirmation_id: result.data,
-          }),
-          headers: {
-            "Content-type": "application/json; charset=UTF-8"
-          }
-        }).then((response)=>{
-          if (response.status == 200) {
-            scanner.stop();
-            alert("delivery marked complete");
-          }
-          else {
-            scanner.stop();
-            alert("error");
-            scanner.start();
-          }
-        });
+    function handleRead(result) {
+        if (!handlingRead) { // read one result at a time
+            handlingRead = true;
+            const urlParams = new URLSearchParams(window.location.search);
+            const tracking_id = urlParams.get('id');
+
+            fetch("https://gettasks.azurewebsites.net/api/finishTask", {
+                method: "POST",
+                body: JSON.stringify({
+                tracking_id: tracking_id,
+                confirmation_id: result.data,
+                }),
+                headers: {
+                "Content-type": "application/json; charset=UTF-8"
+                }
+            }).then((response)=>{
+                if (response.status == 200) {
+                    scanner.stop();
+                    alert("delivery marked complete");
+                }
+                else {
+                    alert("error");
+                    handlingRead = false;
+                }
+            });  
+        }
     }
 
     // ####### Web Cam Scanning #######
 
-    const scanner = new QrScanner(video, result => setResult(result), {
+    const scanner = new QrScanner(video, result => handleRead(result), {
         highlightScanRegion: true,
         highlightCodeOutline: true,
     });
