@@ -9,6 +9,8 @@ from datetime import datetime
 
 
 
+
+
 def main(req: func.HttpRequest, signalrHub: func.Out[str]) -> func.HttpResponse:
     logging.info('Python HTTP trigger function processed a request.')
 
