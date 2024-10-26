@@ -272,6 +272,16 @@ const MainScreen = ({navigation, route}) => {
             if (mapLoaded) {
               updateCourierMapPoint();
             }
+
+            fetch ("https://gettasks.azurewebsites.net/api/updateLocation?", {
+              method: "POST",
+              body: JSON.stringify({
+                "company_id": "${company_id}",
+                "courierId": "${employee_id}",
+                "latitude": latitude,
+                "longitude": longitude
+              })
+            })
           }
 
           function updateCourierMapPoint() {
