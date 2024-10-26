@@ -1,12 +1,12 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { View, Text, Button, TextInput, StyleSheet, Platform, ScrollView, ActivityIndicator } from 'react-native';
-import { NavigationContainer } from '@react-navigation/native';
+import { NavigationContainer, useNavigation } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { WebView } from 'react-native-webview';
 import axios from 'axios';
 import * as Location from 'expo-location';
 import { initializeApp } from '@firebase/app';
-import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, onAuthStateChanged, signOut } from '@firebase/auth';
+import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, onAuthStateChanged, signOut, reauthenticateWithCredential, EmailAuthProvider, updatePassword } from '@firebase/auth';
 import { Alert } from 'react-native';
 import QRCode from 'react-native-qrcode-svg';
 
@@ -22,6 +22,7 @@ const firebaseConfig = {
 };
 
 const app = initializeApp(firebaseConfig);
+const auth = getAuth(app);
 //xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
 
 const LOCATION_TASK_NAME = "background-location-task";
@@ -272,6 +273,16 @@ const MainScreen = ({navigation, route}) => {
             if (mapLoaded) {
               updateCourierMapPoint();
             }
+
+            fetch ("https://gettasks.azurewebsites.net/api/updateLocation?", {
+              method: "POST",
+              body: JSON.stringify({
+                "company_id": "${company_id}",
+                "courierId": "${employee_id}",
+                "latitude": latitude,
+                "longitude": longitude
+              })
+            })
           }
 
           function updateCourierMapPoint() {
@@ -340,15 +351,15 @@ const TaskScreen = ({navigation, route}) => {
   );
 };
 
-const Stack = createNativeStackNavigator();
+
 
 //xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
-const AuthScreen = ({ email, setEmail, password, setPassword, isLogin, setIsLogin, handleAuthentication }) => {
+const AuthScreen = ({ email, setEmail, password, setPassword, handleAuthentication }) => {
   return (
     <View style={styles2.authContainer}>
-       <Text style={styles2.title}>{isLogin ? 'Sign In' : 'Sign Up'}</Text>
+      <Text style={styles2.title}>Sign In</Text>
 
-       <TextInput
+      <TextInput
         style={styles2.input}
         value={email}
         onChangeText={setEmail}
@@ -363,19 +374,17 @@ const AuthScreen = ({ email, setEmail, password, setPassword, isLogin, setIsLogi
         secureTextEntry
       />
       <View style={styles2.buttonContainer}>
-        <Button title={isLogin ? 'Sign In' : 'Sign Up'} onPress={handleAuthentication} color="#3498db" />
-      </View>
-
-      <View style={styles2.bottomContainer}>
-        <Text style={styles2.toggleText} onPress={() => setIsLogin(!isLogin)}>
-          {isLogin ? 'Need an account? Sign Up' : 'Already have an account? Sign In'}
-        </Text>
+        <Button title="Sign In" onPress={handleAuthentication} color="#3498db" />
       </View>
     </View>
   );
-}
+};
+
+//************************************************************************************************************ */
 
 
+
+//************************************************************************************************************
 const AuthenticatedScreen = ({ user, handleAuthentication, navigation }) => {
   const [userData, setUserData] = useState(null);
   const [error, setError] = useState(null);
@@ -440,14 +449,14 @@ const AuthenticatedScreen = ({ user, handleAuthentication, navigation }) => {
 };
 
 //xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
-
+const Stack = createNativeStackNavigator();
 function App() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [user, setUser] = useState(null); // Track user authentication state
   const [isLogin, setIsLogin] = useState(true);
 
-  const auth = getAuth(app);
+
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (user) => {
       setUser(user);
