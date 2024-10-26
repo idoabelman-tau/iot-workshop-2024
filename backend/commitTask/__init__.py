@@ -2,6 +2,8 @@ import logging
 import json
 import pyodbc
 import os
+import random
+import string
 import azure.functions as func
 from datetime import datetime
 
@@ -30,10 +32,9 @@ def main(req: func.HttpRequest, signalrHub: func.Out[str]) -> func.HttpResponse:
                 logging.error(item)
 
                 company_id = int(item['company_id'])
-                user_id = int(item['user_id'])
-                courier_id = int(item['courier_id'])
                 delivery_address = item['delivery_address']
                 status = item['status']
+                UID= item['UID']
                 try:
                     delivery_time = item['delivery_time'] # Change to date type
                 
@@ -41,10 +42,14 @@ def main(req: func.HttpRequest, signalrHub: func.Out[str]) -> func.HttpResponse:
                     logging.error(f"Invalid date format for delivery_time: {item['delivery_time']}. Error: {str(ve)}")
                     return func.HttpResponse(f"Invalid date format: {item['delivery_time']}", status_code=400)
          
+                email = item['email'];
+                tracking_id = ''.join(random.choices(string.ascii_letters + string.digits, k=10)) # 10 character random string
+                confirmation_id = ''.join(random.choices(string.ascii_letters + string.digits, k=255)) # 10 character random string
+                
                 cursor.execute("""
-                    INSERT INTO dbo.Shipments (company_id, user_id, courier_id, delivery_address, delivery_time, status)
-                    VALUES (?, ?, ?, ?, ?, ?)
-                """, company_id, user_id, courier_id, delivery_address, delivery_time, status)
+                    INSERT INTO dbo.Shipments (company_id, delivery_address, delivery_time, status, email, tracking_id, confirmation_id, UID)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                """, company_id, delivery_address, delivery_time, status, email, tracking_id, confirmation_id, UID)
             
             conn.commit()
 

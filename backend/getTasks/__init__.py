@@ -22,8 +22,8 @@ def main(req: func.HttpRequest, signalrHub: func.Out[str]) -> func.HttpResponse:
         with pyodbc.connect(connection_string) as conn:
             with conn.cursor() as cursor:
                 for item in req_body:
-                    query = "SELECT * FROM [dbo].[Shipments] WHERE company_id = ? AND courier_id = ?"
-                    cursor.execute(query, item["company_id"], item["courier_id"])  # Parameterized query
+                    query = "SELECT * FROM [dbo].[Shipments] WHERE company_id = ? AND UID = ?"
+                    cursor.execute(query, item["company_id"], item["UID"])  # Parameterized query
                     rows = cursor.fetchall()
 
                 # Create a list of dictionaries from the rows
