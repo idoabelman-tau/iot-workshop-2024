@@ -1,9 +1,8 @@
 import azure.functions as func
 import json
-from datetime import datetime
 from azure.data.tables import TableServiceClient
 
-# Configure your Azure Table Storage connection
+# Azure Table Storage connection setup
 connection_string = "DefaultEndpointsProtocol=https;AccountName=managementapp;AccountKey=meprd6YMwgYsPiKqPLm1nAB0DZoZ5dZfq4ul7sGd4X2Kx5ixApUnYkFcPqedMfPcE+V/yHpRe4ya+AStKHEowA==;EndpointSuffix=core.windows.net"
 table_service_client = TableServiceClient.from_connection_string(connection_string)
 table_name = "CourierLocations"
@@ -11,35 +10,26 @@ table_client = table_service_client.get_table_client(table_name)
 
 async def main(req: func.HttpRequest) -> func.HttpResponse:
     try:
-        # Parse JSON data from request
-        data = req.get_json()
-        courier_id = data.get('courierId')
-        latitude = data.get('latitude')
-        longitude = data.get('longitude')
-        company_id = data.get('company_id')
-
-        if not courier_id or latitude is None or longitude is None:
+        # Get the courier_id from the query parameters
+        courier_id = req.params.get('courierId')
+        if not courier_id:
             return func.HttpResponse(
-                json.dumps({"error": "Invalid data"}),
+                json.dumps({"error": "courierId parameter is required"}),
                 status_code=400,
                 mimetype="application/json"
             )
 
-      
-        location_data = {
-            "PartitionKey": "LocationData",
-            "RowKey": courier_id,
-            "Latitude": latitude,
-            "Longitude": longitude,
-            "companyId" : company_id,
-            "Timestamp": datetime.utcnow().isoformat()
-        }
+        # Query for the specific courier's location using PartitionKey and RowKey
+        courier_location = table_client.get_entity(partition_key="LocationData", row_key=courier_id)
 
-        # Store data in Azure Table Storage
-        table_client.upsert_entity(location_data)
+        # Format the response with the courier's location
+        location_data = {
+            "courierId": courier_location["RowKey"],
+            "latitude": courier_location["Latitude"],
+            "longitude": courier_location["Longitude"]        }
 
         return func.HttpResponse(
-            json.dumps({"message": "Location updated"}),
+            json.dumps({"courierLocation": location_data}),
             status_code=200,
             mimetype="application/json"
         )
