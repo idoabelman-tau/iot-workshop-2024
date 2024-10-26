@@ -430,7 +430,7 @@ const AuthenticatedScreen = ({ user, handleAuthentication, navigation }) => {
 
   return (
     <View style={styles1.authContainer}>
-      <Text style={styles1.title}>Welcome</Text>
+      <Text style={styles1.title}>Welcome {userData.name}</Text>
       <Text style={styles1.emailText}>{user.email}</Text>
       {/* Pass the employee_id instead of user_id to MainScreen */}
       <Button title="Go to Map" onPress={() => navigation.navigate('Main', { employee_id: userData.UID, company_id: userData.company_id})} />

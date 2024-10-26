@@ -316,7 +316,9 @@ function MapView( { employee_id, company_id } ) {
 
 //-----------------------------------------------------------------------------------------------------------------------------------------------------------------------
 const AddEmployeeScreen = ({ navigation, route }) => {
+  const [newEmployeeEmail, setNewEmployeeEmail] = useState('');
   const [newEmployeeName, setNewEmployeeName] = useState('');
+  const [newEmployeePass, setNewEmployeePass] = useState('');
   const admin_company_id = route.params.admin_company_id;
 
   const addEmployee = async () => {
@@ -327,7 +329,7 @@ const AddEmployeeScreen = ({ navigation, route }) => {
   
     try {
       // Create new user in Firebase Authentication
-      const userCredential = await createUserWithEmailAndPassword(auth, `${newEmployeeName}@gmail.com`, "1234567890");
+      const userCredential = await createUserWithEmailAndPassword(auth, newEmployeeEmail, newEmployeePass);
       const userId = userCredential.user.uid;
 
       // Create the new employee object
@@ -361,9 +363,22 @@ const AddEmployeeScreen = ({ navigation, route }) => {
       <Text style={styles3.headerText}>Add New Employee</Text>
       <TextInput
         style={styles3.input}
+        placeholder="Employee Email"
+        value={newEmployeeEmail}
+        onChangeText={setNewEmployeeEmail}
+      />
+      <TextInput
+        style={styles3.input}
         placeholder="Employee Name"
         value={newEmployeeName}
         onChangeText={setNewEmployeeName}
+      />
+      <TextInput
+        style={styles3.input}
+        placeholder="Employee Password"
+        value={newEmployeePass}
+        onChangeText={setNewEmployeePass}
+        secureTextEntry
       />
       <Button title="Add Employee" onPress={addEmployee} />
     </View>
