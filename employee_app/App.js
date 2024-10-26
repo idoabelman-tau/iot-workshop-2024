@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useRef } from 'react';
-import { View, Text, Button, TextInput, StyleSheet, Platform, ScrollView } from 'react-native';
+import { View, Text, Button, TextInput, StyleSheet, Platform, ScrollView, ActivityIndicator } from 'react-native';
 import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { WebView } from 'react-native-webview';
@@ -8,8 +8,7 @@ import * as Location from 'expo-location';
 import { initializeApp } from '@firebase/app';
 import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, onAuthStateChanged, signOut } from '@firebase/auth';
 import { Alert } from 'react-native';
-import Geolocation from '@react-native-community/geolocation';
-
+import QRCode from 'react-native-qrcode-svg';
 
 //xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
 const firebaseConfig = {
@@ -27,101 +26,33 @@ const app = initializeApp(firebaseConfig);
 
 const LOCATION_TASK_NAME = "background-location-task";
 
-function MapView( { employee_id, company_id } ) {
+var tasks = [];
+
+const MainScreen = ({navigation, route}) => {
+  const { employee_id, company_id } = route.params;
+
   const [mapData, setMapData] = useState([]);
+  const [shipmentId, setShipmentId] = useState(null);
   const [error, setError] = useState(null);
   const webref = useRef(null);
-
-  const [location, setLocation] = useState(null);
-  const [lastSentLocation, setLastSentLocation] = useState(null);
-
-  useEffect(() => {
-    // Function to check if location has changed enough to update backend
-    const hasMovedSignificantly = (newLocation, oldLocation) => {
-      const distance = getDistance(
-        newLocation.latitude,
-        newLocation.longitude,
-        oldLocation.latitude,
-        oldLocation.longitude
-      );
-      return distance > 50; // Example: only update if moved more than 50 meters
-    };
-
-
-    // Function to calculate distance between two points
-    const getDistance = (lat1, lon1, lat2, lon2) => {
-      const R = 6371e3; // Earth radius in meters
-      const p1 = (lat1 * Math.PI) / 180;
-      const p2 = (lat2 * Math.PI) / 180;
-      const dp = ((lat2 - lat1) * Math.PI) / 180;
-      const dl = ((lon2 - lon1) * Math.PI) / 180;
-
-      const a =
-        Math.sin(dp / 2) * Math.sin(dp / 2) +
-        Math.cos(p1) * Math.cos(p2) * Math.sin(dl / 2) * Math.sin(dl / 2);
-      const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-
-      return R * c;
-    };
-
-      // Function to send location to backend
-      const sendLocationToBackend = async (location) => {
-        try {
-          await fetch('https://<YOUR-FUNCTION-APP-NAME>.azurewebsites.net/api/updateLocation', {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-              courierId: 'courier123', // Replace with actual courier ID
-              latitude: location.latitude,
-              longitude: location.longitude,
-            }),
-          });
-          setLastSentLocation(location); // Update last sent location
-        } catch (error) {
-          console.error('Failed to send location:', error);
-        }
-      };
-  
-      // Set up interval for sending location updates
-      const interval = setInterval(() => {
-        Geolocation.getCurrentPosition(
-          (position) => {
-            const { latitude, longitude } = position.coords;
-            const newLocation = { latitude, longitude };
-  
-            if (!lastSentLocation || hasMovedSignificantly(newLocation, lastSentLocation)) {
-              sendLocationToBackend(newLocation);
-            }
-  
-            setLocation(newLocation);
-          },
-          (error) => console.error('Error fetching location:', error),
-          { enableHighAccuracy: true }
-        );
-      }, 30000); // Every 30 seconds
-  
-      return () => clearInterval(interval); // Clean up on component unmount
-    }, [lastSentLocation]);
-
-
-
 
 
   useEffect(() => {
     axios.post('https://gettasks.azurewebsites.net/api/getTasks?', [
         {
           "company_id" : company_id,  // Adjust company_id if needed
-          "courier_id" : employee_id   // Use employee_id for fetching specific delivery points
+          "UID" : employee_id   // Use employee_id for fetching specific delivery points
         }
       ])
       .then(response => {
-        pointStrings = response.data.map(shipment => shipment["delivery_address"]);
-        points = pointStrings.map(str =>
-          [parseFloat(str.split(" ")[1].slice(1)),
-            parseFloat(str.split(" ")[2].slice(0,-1))]
-        );
+        tasks = response.data;
+        points = response.data.map(shipment => {
+          return {
+            coords: [parseFloat(shipment["delivery_address"].split(" ")[1].slice(1)),
+                  parseFloat(shipment["delivery_address"].split(" ")[2].slice(0,-1))],
+            shipment_id: shipment["shipment_id"]
+          };
+        });
         setMapData(points);
       }).catch(error => {
         setError(error.message);
@@ -168,6 +99,15 @@ function MapView( { employee_id, company_id } ) {
     }
   };
 
+  const showTaskHandler = () => {
+    if (shipmentId == null) {
+      alert("select point first");
+    }
+    else {
+      navigation.navigate('Task', { shipmentId: shipmentId });
+    }
+  }
+
   const generateHTML = (data) => {
     return `
       <!DOCTYPE html>
@@ -193,6 +133,7 @@ function MapView( { employee_id, company_id } ) {
           var map;
           var courierPoint;
           var mapLoaded = false;
+          var selected_marker = null;
 
           console.log('Map script loading...');
           (function() {
@@ -217,10 +158,11 @@ function MapView( { employee_id, company_id } ) {
 
                 ${data.map(point => `
                   point = new atlas.data.Feature(
-                    new atlas.data.Point([${point[0]}, ${point[1]}])
+                    new atlas.data.Point([${point.coords[0]}, ${point.coords[1]}]),
+                    {selected: 0, shipment_id: "${point.shipment_id}"}
                   );
                   pointsSource.add(point);
-                  coordinates.push([${point[0]}, ${point[1]}]);
+                  coordinates.push([${point.coords[0]}, ${point.coords[1]}]);
                 `).join('')}
 
                 map.layers.add(
@@ -233,7 +175,26 @@ function MapView( { employee_id, company_id } ) {
                   "labels"
                 );
           
-                map.layers.add(new atlas.layer.SymbolLayer(pointsSource));
+                pointsLayer = new atlas.layer.SymbolLayer(pointsSource, null, {
+                  iconOptions: {
+                    image: [
+                      "case",
+                        ["==", ["get", "selected"], 1], // red for the selected marker
+                          "marker-red",
+
+                        "marker-blue", // blue default
+                    ]
+                  }
+                });
+                map.layers.add(pointsLayer);
+
+                map.events.add('click', pointsLayer, function(e) {
+                  if (e.shapes && e.shapes.length > 0) { // if we clicked on a marker
+                    marker = e.shapes[0];
+                    setSelected(marker);
+                  }
+                });
+
                 map.layers.add(new atlas.layer.SymbolLayer(courierSource, null, {
                   iconOptions: {
                     image: "pin-round-red"
@@ -251,6 +212,22 @@ function MapView( { employee_id, company_id } ) {
               console.error('Error initializing map:', error);
             }
           })();
+
+          function setSelected(marker) {
+            props = marker.getProperties();
+            if (props.selected == 0) { // select the current marker instead of the previous one
+              if (selected_marker != null) {
+                selected_props = selected_marker.getProperties();
+                selected_props.selected = 0;
+                selected_marker.setProperties(selected_props);
+              }
+
+              props.selected = 1;
+              marker.setProperties(props);
+              selected_marker = marker;
+              window.ReactNativeWebView.postMessage(props.shipment_id); // update selected marker's shipment id
+            }
+          }
 
           function calcRoute() {
             let url = "https://atlas.microsoft.com/route/directions/json?";
@@ -313,65 +290,53 @@ function MapView( { employee_id, company_id } ) {
             });
           }
         </script>
-
-        <Button onclick="calcRoute()">Show best route</Button>
       </body>
       </html>
     `};
 
   return (
-    <View style={styles.container}>
+    <View style={styles.mapContainer}>
       <WebView 
         ref={webref}
         originWhitelist={['*']} 
         source={{ html: generateHTML(mapData) }}
         onMessage={(event) => {
-          console.log(event.nativeEvent.data);
+          setShipmentId(Number(event.nativeEvent.data));
         }}
         onLoad={onLoadHandler}  
       />
+      <Button title="Show best route" onPress={() => webref.current.injectJavaScript("calcRoute()")} />
+      <Button title="Show task details" onPress={ showTaskHandler } />
     </View>
   );
-}
+};
 
-// the emails are name@gmail.com and all of the passwords are 1234567890
-const employees = [{
-  employee_id: 1,
-  company_id: 1,
-  name: "guy",
-  user_id: "rRWUKie3aWXNvUlvDSthhs7kGio1"
-}, {
-  employee_id: 2,
-  company_id: 1,
-  name: "buddy",
-  user_id: "mw1sQmRWJUaqn0YlPSrgqDT0Jh63"
-}, {
-  employee_id: 3,
-  company_id: 1,
-  name: "man",
-  user_id: "NNoxdcAlYhcy7trB4PxhcVzF9wH2"
-}, {
-  employee_id: 4,
-  company_id: 2,
-  name: "adam",
-  user_id: "McmAIYF4yQbsAVNAkT3LDuGel1z1"
-}, {
-  employee_id: 5,
-  company_id: 2,
-  name: "jack",
-  user_id: "n81jOz8eFsRqxFSLyTlBK5shCFO2"
-}, {
-  employee_id: 6,
-  company_id: 3,
-  name: "noor",
-  user_id: "6TjZVM9gZZTfJJu3tgy1BfmLP3V2"
-}];
+const TaskScreen = ({navigation, route}) => {
+  const { shipmentId } = route.params;
+  const task = tasks.find(t => t["shipment_id"] === shipmentId);
 
+  const sendEmailHandler = () => {
+    axios.post('https://gettasks.azurewebsites.net/api/sendTrackingEmail?',
+        {
+          "shipment_id" : shipmentId
+        }
+      )
+      .then(response => {
+        alert("email sent");
+      }).catch(error => {
+        alert("error: " + error.message)
+      });
+  }
 
-const MainScreen = ({navigation, route}) => {
-  const { employee_id, company_id } = route.params;
   return (
-    <MapView employee_id={employee_id}  company_id={company_id} />
+    <View style={styles.TaskContainer}>
+      <Text style={styles1.smallText}>Client email: {task["email"]}</Text>
+      <QRCode
+        value={task["confirmation_id"]}
+        size={200}
+      />
+      <Button title="Send tracking email" onPress={ sendEmailHandler } />
+    </View>
   );
 };
 
@@ -412,15 +377,47 @@ const AuthScreen = ({ email, setEmail, password, setPassword, isLogin, setIsLogi
 
 
 const AuthenticatedScreen = ({ user, handleAuthentication, navigation }) => {
+  const [userData, setUserData] = useState(null);
+  const [error, setError] = useState(null);
+  const [loading, setLoading] = useState(true); // Add a loading state
+
+  useEffect(() => {
+      const fetchData = async () => {
+          try {
+              const response = await axios.post('https://getDb.azurewebsites.net/api/getUsers', {
+                  UID: user.uid // Use the dynamic UID here
+              });
+
+              setUserData(response.data[0]);
+          } catch (err) {
+              setError(err.message);
+          } finally {
+              setLoading(false); // Set loading to false after fetch completes
+          }
+      };
+
+      fetchData();
+  }, [user.uid]); // Add uid as a dependency
+
+  if (loading) {
+    // Show a loading indicator while data is being fetched
+    return (
+      <View style={styles1.authContainer}>
+        <Text style={styles1.title}>Loading...</Text>
+        {/* ActivityIndicator */}
+        <ActivityIndicator size="large" color="#0000ff" />
+      </View>
+    );
+  }
 
   // Find the employee using the user.uid from Firebase
-  const employee = employees.find(e => e.user_id === user.uid);
+  const isEmployee = userData && userData.role === 'courier';
 
   // Log information when an employee is found
-  if (employee) {
-    console.log(`User Logged In: Name: ${employee.name}, Employee ID: ${employee.employee_id}, User ID: ${user.uid}, Company ID: ${employee.company_id}`);
+  if (isEmployee) {
+    console.log(`User Logged In: Name: ${userData.name}, Employee ID: ${userData.user_id}, User UID: ${userData.UID}, Company ID: ${userData.company_id}`);
   }
-  if (!employee) {
+  if (!isEmployee) {
     return (
       <View style={styles1.authContainer}>
         <Text style={styles1.title}>Employee not found</Text>
@@ -433,10 +430,10 @@ const AuthenticatedScreen = ({ user, handleAuthentication, navigation }) => {
 
   return (
     <View style={styles1.authContainer}>
-      <Text style={styles1.title}>Welcome</Text>
+      <Text style={styles1.title}>Welcome {userData.name}</Text>
       <Text style={styles1.emailText}>{user.email}</Text>
       {/* Pass the employee_id instead of user_id to MainScreen */}
-      <Button title="Go to Map" onPress={() => navigation.navigate('Main', { employee_id: employee.employee_id, company_id: employee.company_id })} />
+      <Button title="Go to Map" onPress={() => navigation.navigate('Main', { employee_id: userData.UID, company_id: userData.company_id})} />
       <Button title="Logout" onPress={handleAuthentication} color="#e74c3c" />
     </View>
   );
@@ -537,14 +534,20 @@ function App() {
           </Stack.Screen>
         )}
         <Stack.Screen name="Main" component={MainScreen} />
+        <Stack.Screen name="Task" component={TaskScreen} />
       </Stack.Navigator>
     </NavigationContainer>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
+  mapContainer: {
     flex: 1,
+  },
+  TaskContainer :  {
+    flex: 1,
+    justifyContent: 'flex-start', // Centers vertically
+    alignItems: 'center',     // Centers horizontally
   },
 });
 
