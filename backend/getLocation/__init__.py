@@ -29,7 +29,7 @@ async def main(req: func.HttpRequest) -> func.HttpResponse:
             "longitude": courier_location["Longitude"]        }
 
         return func.HttpResponse(
-            json.dumps({"courierLocation": location_data}),
+            json.dumps({"courierLocations": [location_data]}),
             status_code=200,
             mimetype="application/json"
         )

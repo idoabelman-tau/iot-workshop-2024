@@ -19,7 +19,7 @@ async def main(req: func.HttpRequest) -> func.HttpResponse:
             )
         
         # Query all location data under the 'LocationData' partition
-        filter_query = f"PartitionKey eq 'LocationData' and company_id eq '{company_id}'"
+        filter_query = f"PartitionKey eq 'LocationData' and companyId eq '{company_id}'"
         couriers = table_client.query_entities(filter_query)
 
 
@@ -30,7 +30,7 @@ async def main(req: func.HttpRequest) -> func.HttpResponse:
                 "courierId": courier["RowKey"],
                 "latitude": courier["Latitude"],
                 "longitude": courier["Longitude"],
-                "timestamp": courier["Timestamp"]
+                #"timestamp": courier["Timestamp"]
             })
 
         # Return all courier locations as JSON
@@ -41,6 +41,7 @@ async def main(req: func.HttpRequest) -> func.HttpResponse:
         )
 
     except Exception as e:
+        logging.exception("Function failed with exception: %s", e)
         return func.HttpResponse(
             json.dumps({"error": str(e)}),
             status_code=500,

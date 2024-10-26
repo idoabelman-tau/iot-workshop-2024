@@ -60,6 +60,10 @@ function MapView( { employee_id, company_id } ) {
   }
 
   const generateHTML = (data) => {
+    var getLocationsUrl = employee_id == "ALL" ?
+      "https://gettasks.azurewebsites.net/api/getalllocations?companyId=" + company_id :
+      "https://gettasks.azurewebsites.net/api/getlocation?courierId=" + employee_id;
+
     return `
       <!DOCTYPE html>
       <html>
@@ -83,6 +87,7 @@ function MapView( { employee_id, company_id } ) {
 
         <script>
           const pointsSource = new atlas.source.DataSource();
+          const couriersSource = new atlas.source.DataSource();
           var map;
           var geocodeServiceUrlTemplate = 'https://{azMapsDomain}/search/address/json?typeahead=true&api-version=1.0&query={query}&language=he-IL&lon={lon}&lat={lat}&countrySet=IL&view=Auto';
           var marker_clicked = false;
@@ -136,6 +141,23 @@ function MapView( { employee_id, company_id } ) {
             };
           }
 
+          function getCourierPositions() {
+            fetch ("${getLocationsUrl}", {
+              method: "GET",
+            })
+            .then((response)=>response.json())
+            .then((response)=>{
+              couriersSource.clear();
+              response.courierLocations.forEach((location)=>{
+                point = new atlas.data.Feature(
+                  new atlas.data.Point([location.longitude, location.latitude]),
+                  {UID: location.courierId}
+                );
+                couriersSource.add(point);
+              })
+            })
+          }
+
           function startMap() {
             console.log('Map script loading...');
 
@@ -155,6 +177,7 @@ function MapView( { employee_id, company_id } ) {
               map.events.add('ready', function() {
                 console.log('Map is ready.');
                 map.sources.add(pointsSource);
+                map.sources.add(couriersSource);
           
                 ${data.map(point => `
                   point = new atlas.data.Feature(
@@ -164,7 +187,6 @@ function MapView( { employee_id, company_id } ) {
                   pointsSource.add(point);
                 `).join('')}
 
-         
                 pointsLayer = new atlas.layer.SymbolLayer(pointsSource, null, {
                   iconOptions: {
                     image: [
@@ -181,6 +203,12 @@ function MapView( { employee_id, company_id } ) {
                   }
                 });
                 map.layers.add(pointsLayer);
+
+                map.layers.add(new atlas.layer.SymbolLayer(couriersSource, null, {
+                  iconOptions: {
+                    image: "pin-round-red"
+                  }
+                }));
 
                 console.log('Data source and layers added.');
 
@@ -207,6 +235,7 @@ function MapView( { employee_id, company_id } ) {
                   setSelected(shape);
                 });
 
+                setInterval(getCourierPositions, 10000);
                 startAutocomplete();
               });
             } catch (error) {
@@ -235,6 +264,17 @@ function MapView( { employee_id, company_id } ) {
             }
           }
 
+          function euclideanDistance(point1, point2) {
+            return Math.sqrt(Math.pow(point1[0] - point2[0], 2) + Math.pow(point1[1] - point2[1], 2))
+          }
+
+          function closestCourier(marker, couriers) {
+            point = marker.getCoordinates();
+            return couriers.reduce(
+              (a, b) => euclideanDistance(point, a.getCoordinates()) < euclideanDistance(point, b.getCoordinates()) ? a : b
+            );
+          }
+
           function submitTasks() {
             // submit points that have the phone number set and weren't already submitted
             pointsToSubmit = pointsSource.shapes.filter(
@@ -248,7 +288,8 @@ function MapView( { employee_id, company_id } ) {
                             delivery_time: "10/8/2024",
                             email: marker.getProperties().email,
                             status:"pending",
-                            UID: "${employee_id}"} }
+                            UID: closestCourier(marker, couriersSource.shapes).getProperties().UID} // assign the task to the closest courier
+                          }
             );
 
             fetch ("https://gettasks.azurewebsites.net/api/commitTask?", {
@@ -445,6 +486,16 @@ const MainScreen = ({ route }) => {
             titleStyle={{ fontSize: 18 }} 
           />
         ))}
+
+        <Button
+          title="All employees"
+          onPress={() =>
+            navigation.navigate('Employee', { employee_id: "ALL", company_id: admin_company_id })
+          }
+          color={styles4.button.color} 
+          style={styles4.button}
+          titleStyle={{ fontSize: 18 }} 
+        />
       </View>
 
       {/* Add Employee Button at the bottom */}
