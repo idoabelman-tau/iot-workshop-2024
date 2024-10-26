@@ -32,7 +32,6 @@
             })
             .then((response)=>response.json())
             .then((response)=>{
-              couriersSource.clear();
               updateCourierPosition(response.courierLocations[0].longitude,
                 response.courierLocations[0].latitude)
             })
