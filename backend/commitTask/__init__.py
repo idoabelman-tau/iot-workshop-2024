@@ -7,7 +7,7 @@ from datetime import datetime
 
 
 
-def main(req: func.HttpRequest) -> func.HttpResponse:
+def main(req: func.HttpRequest, signalrHub: func.Out[str]) -> func.HttpResponse:
     logging.info('Python HTTP trigger function processed a request.')
 
     try:
@@ -47,6 +47,12 @@ def main(req: func.HttpRequest) -> func.HttpResponse:
                 """, company_id, user_id, courier_id, delivery_address, delivery_time, status)
             
             conn.commit()
+
+          
+        signalrHub.set(json.dumps({
+            'target': 'newTaskUpdate',
+            'arguments': [f'{count}']
+        }))
         
         return func.HttpResponse("Items successfully inserted into database.", status_code=200)
 

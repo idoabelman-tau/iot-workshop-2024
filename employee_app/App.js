@@ -8,6 +8,8 @@ import * as Location from 'expo-location';
 import { initializeApp } from '@firebase/app';
 import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, onAuthStateChanged, signOut } from '@firebase/auth';
 import { Alert } from 'react-native';
+import Geolocation from '@react-native-community/geolocation';
+
 
 //xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
 const firebaseConfig = {
@@ -29,6 +31,82 @@ function MapView( { employee_id, company_id } ) {
   const [mapData, setMapData] = useState([]);
   const [error, setError] = useState(null);
   const webref = useRef(null);
+
+  const [location, setLocation] = useState(null);
+  const [lastSentLocation, setLastSentLocation] = useState(null);
+
+  useEffect(() => {
+    // Function to check if location has changed enough to update backend
+    const hasMovedSignificantly = (newLocation, oldLocation) => {
+      const distance = getDistance(
+        newLocation.latitude,
+        newLocation.longitude,
+        oldLocation.latitude,
+        oldLocation.longitude
+      );
+      return distance > 50; // Example: only update if moved more than 50 meters
+    };
+
+
+    // Function to calculate distance between two points
+    const getDistance = (lat1, lon1, lat2, lon2) => {
+      const R = 6371e3; // Earth radius in meters
+      const p1 = (lat1 * Math.PI) / 180;
+      const p2 = (lat2 * Math.PI) / 180;
+      const dp = ((lat2 - lat1) * Math.PI) / 180;
+      const dl = ((lon2 - lon1) * Math.PI) / 180;
+
+      const a =
+        Math.sin(dp / 2) * Math.sin(dp / 2) +
+        Math.cos(p1) * Math.cos(p2) * Math.sin(dl / 2) * Math.sin(dl / 2);
+      const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+
+      return R * c;
+    };
+
+      // Function to send location to backend
+      const sendLocationToBackend = async (location) => {
+        try {
+          await fetch('https://<YOUR-FUNCTION-APP-NAME>.azurewebsites.net/api/updateLocation', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              courierId: 'courier123', // Replace with actual courier ID
+              latitude: location.latitude,
+              longitude: location.longitude,
+            }),
+          });
+          setLastSentLocation(location); // Update last sent location
+        } catch (error) {
+          console.error('Failed to send location:', error);
+        }
+      };
+  
+      // Set up interval for sending location updates
+      const interval = setInterval(() => {
+        Geolocation.getCurrentPosition(
+          (position) => {
+            const { latitude, longitude } = position.coords;
+            const newLocation = { latitude, longitude };
+  
+            if (!lastSentLocation || hasMovedSignificantly(newLocation, lastSentLocation)) {
+              sendLocationToBackend(newLocation);
+            }
+  
+            setLocation(newLocation);
+          },
+          (error) => console.error('Error fetching location:', error),
+          { enableHighAccuracy: true }
+        );
+      }, 30000); // Every 30 seconds
+  
+      return () => clearInterval(interval); // Clean up on component unmount
+    }, [lastSentLocation]);
+
+
+
 
 
   useEffect(() => {

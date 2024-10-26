@@ -4,7 +4,7 @@ import azure.functions as func
 import pyodbc
 
 
-def main(req: func.HttpRequest) -> func.HttpResponse:
+def main(req: func.HttpRequest, signalrHub: func.Out[str]) -> func.HttpResponse:
     logging.info('Python HTTP trigger function processed a request.')
 
     server = 'sql-erver.database.windows.net'
