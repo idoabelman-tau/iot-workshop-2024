@@ -518,12 +518,12 @@ const EmployeeScreen = ({navigation, route}) => {
 };
 
 //xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
-const AuthScreen = ({ email, setEmail, password, setPassword, isLogin, setIsLogin, handleAuthentication }) => {
+const AuthScreen = ({ email, setEmail, password, setPassword, handleAuthentication }) => {
   return (
     <View style={styles2.authContainer}>
-       <Text style={styles2.title}>{isLogin ? 'Sign In' : 'Sign Up'}</Text>
+      <Text style={styles2.title}>Sign In</Text>
 
-       <TextInput
+      <TextInput
         style={styles2.input}
         value={email}
         onChangeText={setEmail}
@@ -538,17 +538,11 @@ const AuthScreen = ({ email, setEmail, password, setPassword, isLogin, setIsLogi
         secureTextEntry
       />
       <View style={styles2.buttonContainer}>
-        <Button title={isLogin ? 'Sign In' : 'Sign Up'} onPress={handleAuthentication} color="#3498db" />
-      </View>
-
-      <View style={styles2.bottomContainer}>
-        <Text style={styles2.toggleText} onPress={() => setIsLogin(!isLogin)}>
-          {isLogin ? 'Need an account? Sign Up' : 'Already have an account? Sign In'}
-        </Text>
+        <Button title="Sign In" onPress={handleAuthentication} color="#3498db" />
       </View>
     </View>
   );
-}
+};
 
 
 const AuthenticatedScreen = ({ user, handleAuthentication, navigation }) => {
