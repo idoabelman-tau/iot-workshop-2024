@@ -4,7 +4,7 @@ import azure.functions as func
 import pyodbc
 
 
-def main(req: func.HttpRequest, signalrHub: func.Out[str]) -> func.HttpResponse:
+def main(req: func.HttpRequest) -> func.HttpResponse:
     logging.info('Python HTTP trigger function processed a request.')
 
     server = 'sql-erver.database.windows.net'
@@ -29,7 +29,7 @@ def main(req: func.HttpRequest, signalrHub: func.Out[str]) -> func.HttpResponse:
                     return func.HttpResponse("Shipment not found", status_code=404)
                 else:
                     return func.HttpResponse(
-                        body=row[0][0],
+                        body=rows[0][0],
                         mimetype="application/json",
                         status_code=200
                     )
