@@ -9,6 +9,8 @@ import { initializeApp } from '@firebase/app';
 import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, onAuthStateChanged, signOut, reauthenticateWithCredential, EmailAuthProvider, updatePassword } from '@firebase/auth';
 import { Alert } from 'react-native';
 import QRCode from 'react-native-qrcode-svg';
+import * as SignalR from '@microsoft/signalr';
+
 
 //xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
 const firebaseConfig = {
@@ -510,6 +512,38 @@ function App() {
       }
     }
   };
+
+
+  const [tasks, setTasks] = useState([]);
+  const [connection, setConnection] = useState(null);
+
+  useEffect(() => {
+    // Step 1: Initialize SignalR connection
+    const signalRConnection = new SignalR.HubConnectionBuilder()
+      .withUrl("https://gettasks.azurewebsites.net/api/", {}).withAutomaticReconnect().build();
+    
+
+      signalRConnection.onclose(()=>{console.log('Connection Closed')});
+
+      setConnection(signalRConnection);
+
+     const startConnection = async() =>{
+      try { 
+        await signalRConnection.start();
+        setConnection(signalRConnection);}
+        catch(err) { console.log("error ". err);
+          setTimeout(() => {
+            
+          }, startConnection, 500000);
+        }
+      };
+      startConnection();
+      signalRConnection.on('newTaskUpdate', (task)=> {alert(console.log(task)); setTasks((prevTasks) => [...prevTasks, task]);});
+
+
+     },[]);
+
+
 
   return (
     <NavigationContainer>

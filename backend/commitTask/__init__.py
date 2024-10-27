@@ -52,14 +52,16 @@ def main(req: func.HttpRequest, signalrHub: func.Out[str]) -> func.HttpResponse:
                     INSERT INTO dbo.Shipments (company_id, delivery_address, delivery_time, status, email, tracking_id, confirmation_id, UID)
                     VALUES (?, ?, ?, ?, ?, ?, ?, ?)
                 """, company_id, delivery_address, delivery_time, status, email, tracking_id, confirmation_id, UID)
+
+                signalrHub.set(json.dumps({
+                    'target': 'newTaskUpdate',
+                'arguments': [{"company_id":company_id, "delivery_address":delivery_address, "delivery_time":delivery_time, "status":status, "email":email, "tracking_id":tracking_id, "confirmation_id":confirmation_id, "UID":UID}]
+                }))
             
             conn.commit()
 
           
-        signalrHub.set(json.dumps({
-            'target': 'newTaskUpdate',
-            'arguments': [f'{count}']
-        }))
+        
         
         return func.HttpResponse("Items successfully inserted into database.", status_code=200)
 
