@@ -41,7 +41,7 @@ This delivery management solution optimizes courier and service routes, making i
 - **Azure Maps:** Displays delivery locations and calculates optimal routes for each courier.
 - **Azure App Services:** Hosts the customer-facing web app with CI/CD integration for seamless updates from GitHub.
 - **Azure Communication Services:** Sends notification emails with tracking links to customers when deliveries are on the way.
-- **Azure SignalR:** Provides real-time synchronization, instantly updating tasks across the manager and customer apps.
+- **Azure SignalR:** Provides real-time synchronization, instantly updating tasks across the manager and employee apps.
 - **Azure Table Storage:** Stores courier locations, providing a key/attribute store with a schema-less design, allowing efficient retrieval of location data.
 
 ### Firebase
