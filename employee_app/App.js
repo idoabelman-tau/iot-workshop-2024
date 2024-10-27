@@ -39,6 +39,40 @@ const MainScreen = ({navigation, route}) => {
   const [error, setError] = useState(null);
   const webref = useRef(null);
 
+  const [connection, setConnection] = useState(null);
+
+  useEffect(() => {
+    // Step 1: Initialize SignalR connection
+    const signalRConnection = new SignalR.HubConnectionBuilder()
+      .withUrl("https://gettasks.azurewebsites.net/api/", {}).withAutomaticReconnect().build();
+    
+
+      signalRConnection.onclose(()=>{console.log('Connection Closed')});
+
+      setConnection(signalRConnection);
+
+     const startConnection = async() =>{
+      try { 
+        await signalRConnection.start();
+        setConnection(signalRConnection);}
+        catch(err) { console.log("error ". err);
+          setTimeout(() => {
+            
+          }, startConnection, 500000);
+        }
+      };
+      startConnection();
+      signalRConnection.on('newTaskUpdate', (task)=> {
+        new_map_point = {
+          coords: [parseFloat(task["delivery_address"].split(" ")[1].slice(1)),
+                parseFloat(task["delivery_address"].split(" ")[2].slice(0,-1))],
+          shipment_id: task["shipment_id"]
+        }
+        setMapData((prevTasks) => [...prevTasks, new_map_point]);
+      });
+
+
+     },[]);
 
   useEffect(() => {
     axios.post('https://gettasks.azurewebsites.net/api/getTasks?', [
@@ -512,38 +546,6 @@ function App() {
       }
     }
   };
-
-
-  const [tasks, setTasks] = useState([]);
-  const [connection, setConnection] = useState(null);
-
-  useEffect(() => {
-    // Step 1: Initialize SignalR connection
-    const signalRConnection = new SignalR.HubConnectionBuilder()
-      .withUrl("https://gettasks.azurewebsites.net/api/", {}).withAutomaticReconnect().build();
-    
-
-      signalRConnection.onclose(()=>{console.log('Connection Closed')});
-
-      setConnection(signalRConnection);
-
-     const startConnection = async() =>{
-      try { 
-        await signalRConnection.start();
-        setConnection(signalRConnection);}
-        catch(err) { console.log("error ". err);
-          setTimeout(() => {
-            
-          }, startConnection, 500000);
-        }
-      };
-      startConnection();
-      signalRConnection.on('newTaskUpdate', (task)=> {alert(console.log(task)); setTasks((prevTasks) => [...prevTasks, task]);});
-
-
-     },[]);
-
-
 
   return (
     <NavigationContainer>

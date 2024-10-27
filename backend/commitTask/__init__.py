@@ -50,12 +50,16 @@ def main(req: func.HttpRequest, signalrHub: func.Out[str]) -> func.HttpResponse:
                 
                 cursor.execute("""
                     INSERT INTO dbo.Shipments (company_id, delivery_address, delivery_time, status, email, tracking_id, confirmation_id, UID)
+                    OUTPUT inserted.shipment_id
                     VALUES (?, ?, ?, ?, ?, ?, ?, ?)
                 """, company_id, delivery_address, delivery_time, status, email, tracking_id, confirmation_id, UID)
+                rows = cursor.fetchall()
+                shipment_id = rows[0].shipment_id
+
 
                 signalrHub.set(json.dumps({
                     'target': 'newTaskUpdate',
-                'arguments': [{"company_id":company_id, "delivery_address":delivery_address, "delivery_time":delivery_time, "status":status, "email":email, "tracking_id":tracking_id, "confirmation_id":confirmation_id, "UID":UID}]
+                'arguments': [{"shipment_id":shipment_id, "company_id":company_id, "delivery_address":delivery_address, "delivery_time":delivery_time, "status":status, "email":email, "tracking_id":tracking_id, "confirmation_id":confirmation_id, "UID":UID}]
                 }))
             
             conn.commit()
