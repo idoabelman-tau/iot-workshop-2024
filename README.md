@@ -64,7 +64,7 @@ DeliverEase is designed to streamline the delivery process for couriers and serv
 
 --- 
 # App Walkthrough
-Discover how our app works and explore its key features in action.
+Discover how our app works and explore its key features in action. (click the image to see the video)
 ### the Management App
 [![Watch the second video](https://img.youtube.com/vi/-emPpZtnM9Y/0.jpg)](https://youtu.be/-emPpZtnM9Y)
 
