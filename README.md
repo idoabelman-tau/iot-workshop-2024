@@ -62,14 +62,14 @@ DeliverEase is designed to streamline the delivery process for couriers and serv
 ### Firebase
 - **Firebase Authentication:** Manages user authentication securely, allowing a secure and easy sign-in for all app users.
 
-
+--- 
 # App Walkthrough
 Discover how our app works and explore its key features in action.
 ### the management app
-
-
+[![Watch the second video](https://img.youtube.com/vi/-emPpZtnM9Y/0.jpg)](https://youtu.be/-emPpZtnM9Y)
 
 ### the couriers and customers app
+[![Watch the video](https://img.youtube.com/vi/A54aXfkqpMg/0.jpg)](https://youtu.be/A54aXfkqpMg)
 
 ---
 
