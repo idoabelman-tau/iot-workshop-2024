@@ -17,6 +17,8 @@ DeliverEase is designed to streamline the delivery process for couriers and serv
 
 - Customer Notifications: Customers receive updates via email with tracking links, allowing them to follow their delivery's progress and confirm receipt through a QR code.
 
+---
+
 ### Key Features
 - **Efficient Task Division:** Distribute tasks among couriers automatically, based on delivery locations.
 - **Real-Time Courier Tracking:** Track each courier’s location in real-time as they progress through their delivery tasks.
@@ -74,7 +76,7 @@ Discover how our app works and explore its key features in action.
 # About Us
 This project is submitted by Nur eldeen Masarwa, Noa Roet, and Ido Abelman.
 
-At the time of submission, we were last-year Computer Science students at Tel-Aviv University.
+At the time of submission, we are last-year Computer Science students at Tel-Aviv University.
 
 The workshop was guided by Dr. Nir Levy and Mr.Moab Arar
 
